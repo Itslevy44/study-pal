@@ -6,6 +6,7 @@ import * as storageService from './storageService';
 export const authApi = {
   async register(email: string, password: string, school: string, year: string) {
     try {
+      // Step 1: Create auth user
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -13,27 +14,33 @@ export const authApi = {
 
       if (error) throw error;
 
-      if (data.user) {
-        const { data: userData, error: insertError } = await supabase
-          .from('users')
-          .insert([{
-            id: data.user.id,
-            email,
-            password,
-            school,
-            year,
-            role: 'student'
-          }])
-          .select()
-          .single();
-
-        if (insertError) throw insertError;
-        return { user: userData, error: null };
+      if (!data.user) {
+        throw new Error('Failed to create authentication user');
       }
 
-      return { user: null, error: 'Failed to create user' };
+      // Step 2: Create user profile in database (without storing password)
+      const { data: userData, error: insertError } = await supabase
+        .from('users')
+        .insert([{
+          id: data.user.id,
+          email: data.user.email,
+          school,
+          year,
+          role: 'student'
+        }])
+        .select()
+        .single();
+
+      if (insertError) {
+        // If profile creation fails, try to clean up the auth user
+        console.error('Profile creation error:', insertError);
+        throw insertError;
+      }
+
+      return { user: userData, error: null };
     } catch (error: any) {
-      return { user: null, error: error.message || error };
+      console.error('Registration error:', error);
+      return { user: null, error: error.message || 'Registration failed' };
     }
   },
 
