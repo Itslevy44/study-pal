@@ -1,9 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { User, UserRole, University } from '../types';
-import { api } from '../services/api';
+import { authApi, universitiesApi } from '../services/supabaseApi';
 import Logo from './Logo';
-import { LogIn, UserPlus, Mail, Lock, School, Calendar, ChevronRight } from 'lucide-react';
+import { LogIn, UserPlus, Mail, Lock, School, Calendar, ChevronRight, Loader } from 'lucide-react';
 
 interface AuthProps {
   onLogin: (user: User) => void;
@@ -16,38 +16,65 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
   const [school, setSchool] = useState('');
   const [year, setYear] = useState('First Year');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const [universities, setUniversities] = useState<University[]>([]);
 
   useEffect(() => {
-    setUniversities(api.getUniversities());
+    const fetchUniversities = async () => {
+      const unis = await universitiesApi.getUniversities();
+      setUniversities(unis);
+    };
+    fetchUniversities();
   }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setLoading(true);
 
-    if (isLogin) {
-      const user = api.login(email, password);
-      if (user) {
-        api.setCurrentUser(user);
-        onLogin(user);
-      } else {
-        setError('Login failed. Check your email or password.');
-      }
-    } else {
-      if (!email || !password || !school) {
-        setError('All fields are required.');
+    try {
+      if (!email || !password) {
+        setError('Email and password are required.');
+        setLoading(false);
         return;
       }
-      const newUser = api.register({
-        email,
-        password,
-        school,
-        year,
-        role: 'student' as UserRole
-      });
-      api.setCurrentUser(newUser);
-      onLogin(newUser);
+
+      if (!school) {
+        setError('Please select your institution.');
+        setLoading(false);
+        return;
+      }
+
+      if (isLogin) {
+        const { user, error } = await authApi.login(email, password);
+        if (error) {
+          setError('Invalid email or password.');
+          setLoading(false);
+          return;
+        }
+        if (user) {
+          onLogin(user);
+        }
+      } else {
+        if (!year) {
+          setError('Please select your year.');
+          setLoading(false);
+          return;
+        }
+        const { user, error } = await authApi.register(email, password, school, year);
+        if (error) {
+          setError('Registration failed. Email may already exist.');
+          setLoading(false);
+          return;
+        }
+        if (user) {
+          onLogin(user);
+        }
+      }
+    } catch (err: any) {
+      setError(err.message || 'An error occurred. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -84,16 +111,20 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
               <input type="password" placeholder="Password" className="input-auth" value={password} onChange={(e) => setPassword(e.target.value)} required />
             </div>
 
-            {!isLogin && (
-              <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
-                <div className="relative">
-                  <School className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" />
-                  <select required className="input-auth appearance-none font-bold" value={school} onChange={(e) => setSchool(e.target.value)}>
-                    <option value="">Institution...</option>
-                    {universities.map(u => <option key={u.id} value={u.name}>{u.name}</option>)}
-                  </select>
-                </div>
+            <div className="relative">
+              <School className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" />
+              <select required className="input-auth appearance-none font-bold" value={school} onChange={(e) => setSchool(e.target.value)}>
+                <option value="">Select Institution...</option>
+                {universities.length === 0 ? (
+                  <option disabled>Loading institutions...</option>
+                ) : (
+                  universities.map(u => <option key={u.id} value={u.name}>{u.name}</option>)
+                )}
+              </select>
+            </div>
 
+            {!isLogin && (
+              <div className="animate-in fade-in slide-in-from-top-2">
                 <div className="relative">
                   <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" />
                   <select className="input-auth appearance-none font-bold" value={year} onChange={(e) => setYear(e.target.value)}>
@@ -103,9 +134,9 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
               </div>
             )}
 
-            <button type="submit" className="w-full py-4 bg-indigo-600 text-white font-black text-lg rounded-2xl hover:bg-indigo-700 shadow-lg transition-all flex items-center justify-center gap-2 mt-2">
-              {isLogin ? <LogIn size={20} /> : <UserPlus size={20} />}
-              <span>{isLogin ? 'Sign In' : 'Join Now'}</span>
+            <button type="submit" disabled={loading} className="w-full py-4 bg-indigo-600 text-white font-black text-lg rounded-2xl hover:bg-indigo-700 disabled:bg-indigo-400 shadow-lg transition-all flex items-center justify-center gap-2 mt-2">
+              {loading ? <Loader size={20} className="animate-spin" /> : (isLogin ? <LogIn size={20} /> : <UserPlus size={20} />)}
+              <span>{loading ? 'Processing...' : (isLogin ? 'Sign In' : 'Join Now')}</span>
             </button>
           </form>
 

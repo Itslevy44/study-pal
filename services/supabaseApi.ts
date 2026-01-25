@@ -14,7 +14,7 @@ export const authApi = {
       if (error) throw error;
 
       if (data.user) {
-        const { error: insertError } = await supabase
+        const { data: userData, error: insertError } = await supabase
           .from('users')
           .insert([{
             id: data.user.id,
@@ -23,14 +23,17 @@ export const authApi = {
             school,
             year,
             role: 'student'
-          }]);
+          }])
+          .select()
+          .single();
 
         if (insertError) throw insertError;
+        return { user: userData, error: null };
       }
 
-      return { user: data.user, error: null };
-    } catch (error) {
-      return { user: null, error };
+      return { user: null, error: 'Failed to create user' };
+    } catch (error: any) {
+      return { user: null, error: error.message || error };
     }
   },
 
@@ -52,8 +55,8 @@ export const authApi = {
       if (userError) throw userError;
 
       return { user: userData, error: null };
-    } catch (error) {
-      return { user: null, error };
+    } catch (error: any) {
+      return { user: null, error: error.message || error };
     }
   },
 
