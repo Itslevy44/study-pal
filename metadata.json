@@ -1,0 +1,8 @@
+{
+  "name": "Copy of Study Pal",
+  "description": "A comprehensive study material platform for university students featuring notes, past papers, M-Pesa integration, and an AI study assistant.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
