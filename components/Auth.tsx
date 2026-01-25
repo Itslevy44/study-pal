@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { User, UserRole, University } from '../types';
 import { api } from '../services/api';
 import Logo from './Logo';
-import { LogIn, UserPlus, Mail, Lock, School, Calendar } from 'lucide-react';
+import { LogIn, UserPlus, Mail, Lock, School, Calendar, ChevronRight } from 'lucide-react';
 
 interface AuthProps {
   onLogin: (user: User) => void;
@@ -32,11 +32,11 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
         api.setCurrentUser(user);
         onLogin(user);
       } else {
-        setError('Invalid credentials. Check your email/password.');
+        setError('Login failed. Check your email or password.');
       }
     } else {
       if (!email || !password || !school) {
-        setError('Please fill all fields');
+        setError('All fields are required.');
         return;
       }
       const newUser = api.register({
@@ -52,67 +52,66 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 relative overflow-hidden">
-      <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-indigo-500/10 blur-[120px] rounded-full -translate-y-1/2 translate-x-1/2" />
-      <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-pink-500/10 blur-[120px] rounded-full translate-y-1/2 -translate-x-1/2" />
+    <div className="min-h-screen flex items-center justify-center p-4 bg-slate-50 relative overflow-hidden">
+      {/* Background Decor */}
+      <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-100/50 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/2" />
+      <div className="absolute bottom-0 left-0 w-96 h-96 bg-blue-100/50 rounded-full blur-[100px] translate-y-1/2 -translate-x-1/2" />
 
-      <div className="w-full max-w-md bg-white rounded-[2.5rem] shadow-2xl overflow-hidden relative z-10">
-        <div className="p-10">
+      <div className="w-full max-w-sm bg-white rounded-[2rem] shadow-2xl overflow-hidden relative z-10 border border-slate-100">
+        <div className="p-8 sm:p-10">
           <div className="flex flex-col items-center mb-10">
-            <div className="mb-6 hover:scale-110 transition-transform cursor-pointer">
-              <Logo size="lg" />
-            </div>
-            <h1 className="text-4xl font-black text-slate-800 tracking-tight">Study Pal</h1>
-            <p className="text-slate-400 mt-2 font-medium">
-              {isLogin ? 'Welcome back, Scholar!' : 'Join the hub of knowledge'}
+            <div className="mb-4"><Logo size="md" /></div>
+            <h1 className="text-2xl font-black text-slate-800 tracking-tight">Study Pal</h1>
+            <p className="text-slate-400 mt-1 font-bold text-xs uppercase tracking-widest">
+              {isLogin ? 'Sign in to your hub' : 'Create your scholar account'}
             </p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
-              <div className="p-4 bg-red-50 border border-red-100 text-red-600 text-sm rounded-2xl font-bold flex items-center gap-2">
-                <div className="w-1.5 h-1.5 rounded-full bg-red-600 animate-pulse" />
+              <div className="p-4 bg-red-50 text-red-600 text-[10px] font-black uppercase tracking-widest rounded-xl border border-red-100 animate-in fade-in zoom-in">
                 {error}
               </div>
             )}
 
-            <div className="relative group">
-              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within:text-indigo-500 transition-colors" />
-              <input type="email" placeholder="University Email" className="input-auth" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            <div className="relative">
+              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" />
+              <input type="email" placeholder="Email Address" className="input-auth" value={email} onChange={(e) => setEmail(e.target.value)} required />
             </div>
 
-            <div className="relative group">
-              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within:text-indigo-500 transition-colors" />
+            <div className="relative">
+              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" />
               <input type="password" placeholder="Password" className="input-auth" value={password} onChange={(e) => setPassword(e.target.value)} required />
             </div>
 
             {!isLogin && (
-              <div className="animate-in fade-in slide-in-from-top-4 duration-300 space-y-4">
-                <div className="relative group">
-                  <School className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within:text-indigo-500 transition-colors" />
+              <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
+                <div className="relative">
+                  <School className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" />
                   <select required className="input-auth appearance-none font-bold" value={school} onChange={(e) => setSchool(e.target.value)}>
-                    <option value="">Select University...</option>
+                    <option value="">Institution...</option>
                     {universities.map(u => <option key={u.id} value={u.name}>{u.name}</option>)}
                   </select>
                 </div>
 
-                <div className="relative group">
-                  <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within:text-indigo-500 transition-colors" />
+                <div className="relative">
+                  <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" />
                   <select className="input-auth appearance-none font-bold" value={year} onChange={(e) => setYear(e.target.value)}>
-                    <option>First Year</option><option>Second Year</option><option>Third Year</option><option>Fourth Year</option><option>Postgraduate</option>
+                    <option>First Year</option><option>Second Year</option><option>Third Year</option><option>Fourth Year</option>
                   </select>
                 </div>
               </div>
             )}
 
-            <button type="submit" className="w-full py-5 bg-indigo-600 text-white font-black text-lg rounded-2xl hover:bg-indigo-700 shadow-xl shadow-indigo-200 transition-all flex items-center justify-center gap-3 mt-4">
-              {isLogin ? <><LogIn className="w-6 h-6" /> Sign In</> : <><UserPlus className="w-6 h-6" /> Create Account</>}
+            <button type="submit" className="w-full py-4 bg-indigo-600 text-white font-black text-lg rounded-2xl hover:bg-indigo-700 shadow-lg transition-all flex items-center justify-center gap-2 mt-2">
+              {isLogin ? <LogIn size={20} /> : <UserPlus size={20} />}
+              <span>{isLogin ? 'Sign In' : 'Join Now'}</span>
             </button>
           </form>
 
-          <div className="mt-10 pt-8 border-t border-slate-50 text-center">
-            <button onClick={() => setIsLogin(!isLogin)} className="text-indigo-600 font-bold hover:text-indigo-800 transition-all">
-              {isLogin ? "New scholar? Create an account" : "Already registered? Sign in instead"}
+          <div className="mt-8 text-center">
+            <button onClick={() => { setIsLogin(!isLogin); setError(''); }} className="text-slate-400 text-[10px] font-black uppercase tracking-widest hover:text-indigo-600 transition-colors">
+              {isLogin ? "Need an account? Sign up" : "Existing member? Log in"}
             </button>
           </div>
         </div>

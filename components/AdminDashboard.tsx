@@ -5,7 +5,6 @@ import { api } from '../services/api';
 import Logo from './Logo';
 import { 
   Users, 
-  FilePlus, 
   LogOut, 
   Trash2, 
   BookOpen, 
@@ -15,12 +14,11 @@ import {
   PlusCircle,
   X,
   UserPlus,
-  ShieldAlert,
   School,
   CreditCard,
-  Search,
-  Calendar,
-  Hash
+  Hash,
+  Menu,
+  ChevronRight
 } from 'lucide-react';
 
 interface AdminDashboardProps {
@@ -38,18 +36,15 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showAdminModal, setShowAdminModal] = useState(false);
   const [showUniModal, setShowUniModal] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   
-  // New Material State
   const [newTitle, setNewTitle] = useState('');
   const [newType, setNewType] = useState<'note' | 'past-paper'>('note');
   const [newSchool, setNewSchool] = useState('');
   const [newYear, setNewYear] = useState('First Year');
 
-  // New Admin State
   const [adminEmail, setAdminEmail] = useState('');
   const [adminPass, setAdminPass] = useState('');
-
-  // New University State
   const [uniName, setUniName] = useState('');
 
   useEffect(() => {
@@ -118,170 +113,141 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
   };
 
   const promoteUser = (userId: string) => {
-    if (confirm('Promote this user to Admin? They will have full system access.')) {
+    if (confirm('Promote this user to Admin?')) {
         api.promoteToAdmin(userId);
         refreshData();
     }
   };
 
   return (
-    <div className="flex h-screen bg-slate-50 overflow-hidden">
+    <div className="flex h-screen bg-slate-50 overflow-hidden relative">
+      {/* Sidebar Overlay for Mobile */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-40 md:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
-      <aside className="w-72 bg-slate-900 text-slate-300 flex flex-col p-6 shadow-2xl">
-        <div className="flex items-center gap-3 py-6 mb-8">
-          <Logo size="sm" />
-          <div>
-            <span className="text-xl font-bold text-white tracking-tight block">Study Pal</span>
-            <span className="text-[10px] text-indigo-400 font-black uppercase tracking-widest bg-indigo-500/10 px-2 py-0.5 rounded">Admin Console</span>
-          </div>
+      <aside className={`
+        fixed inset-y-0 left-0 z-50 w-72 bg-slate-900 text-slate-300 flex flex-col p-6 shadow-2xl transition-transform duration-300 transform
+        ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+        md:relative md:translate-x-0
+      `}>
+        <div className="flex items-center justify-between mb-8 px-2">
+            <div className="flex items-center gap-3 py-4">
+                <Logo size="sm" />
+                <div>
+                    <span className="text-xl font-bold text-white tracking-tight block">Study Pal</span>
+                    <span className="text-[9px] text-indigo-400 font-black uppercase tracking-widest bg-indigo-500/10 px-2 py-0.5 rounded">Console</span>
+                </div>
+            </div>
+            <button onClick={() => setIsSidebarOpen(false)} className="md:hidden p-2 text-slate-500"><X /></button>
         </div>
 
-        <nav className="flex-1 space-y-2">
-          <SidebarLink active={activeTab === 'materials'} onClick={() => setActiveTab('materials')} icon={<FileText />} label="Study Materials" />
-          <SidebarLink active={activeTab === 'universities'} onClick={() => setActiveTab('universities')} icon={<School />} label="Universities" />
-          <SidebarLink active={activeTab === 'users'} onClick={() => setActiveTab('users')} icon={<Users />} label="Member Directory" />
-          <SidebarLink active={activeTab === 'payments'} onClick={() => setActiveTab('payments')} icon={<CreditCard />} label="Payment History" />
+        <nav className="flex-1 space-y-1.5">
+          <SidebarLink active={activeTab === 'materials'} onClick={() => { setActiveTab('materials'); setIsSidebarOpen(false); }} icon={<FileText />} label="Resources" />
+          <SidebarLink active={activeTab === 'universities'} onClick={() => { setActiveTab('universities'); setIsSidebarOpen(false); }} icon={<School />} label="Universities" />
+          <SidebarLink active={activeTab === 'users'} onClick={() => { setActiveTab('users'); setIsSidebarOpen(false); }} icon={<Users />} label="Member Directory" />
+          <SidebarLink active={activeTab === 'payments'} onClick={() => { setActiveTab('payments'); setIsSidebarOpen(false); }} icon={<CreditCard />} label="Transactions" />
         </nav>
 
         <div className="mt-auto pt-6 border-t border-slate-800">
-            <div className="mb-6 p-4 bg-slate-800/50 rounded-2xl">
-                <p className="text-xs text-slate-500 mb-1">Signed in as</p>
-                <p className="text-sm font-bold text-white truncate">{user.email}</p>
-            </div>
-            <button
-                onClick={onLogout}
-                className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-all font-bold text-sm"
-            >
-                <LogOut className="w-4 h-4" />
-                Logout System
+            <button onClick={onLogout} className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-all font-bold text-sm">
+                <LogOut className="w-4 h-4" /> Logout
             </button>
         </div>
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-y-auto p-10">
-        <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12">
-          <div>
-            <h2 className="text-4xl font-black text-slate-800 tracking-tight capitalize">
-              {activeTab.replace('-', ' ')}
-            </h2>
-            <p className="text-slate-500 text-lg mt-1">
-              {activeTab === 'materials' && `Overseeing ${materials.length} shared academic resources`}
-              {activeTab === 'universities' && `Managing ${universities.length} registered institutions`}
-              {activeTab === 'users' && `Managing ${users.length} registered users and administrators`}
-              {activeTab === 'payments' && `Monitoring ${payments.length} successful transactions`}
-            </p>
+      <main className="flex-1 overflow-y-auto p-4 sm:p-8 lg:p-12 relative">
+        <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-10">
+          <div className="flex items-center gap-4">
+            <button onClick={() => setIsSidebarOpen(true)} className="md:hidden p-2 bg-white rounded-lg shadow-sm border border-slate-100 text-slate-600">
+                <Menu />
+            </button>
+            <div>
+              <h2 className="text-2xl sm:text-4xl font-black text-slate-800 tracking-tight capitalize">{activeTab}</h2>
+              <p className="text-slate-400 text-sm font-medium mt-0.5">Admin Management Dashboard</p>
+            </div>
           </div>
           
-          <div className="flex gap-4">
-            {activeTab === 'users' && (
-               <button onClick={() => setShowAdminModal(true)} className="btn-primary">
-                 <UserPlus className="w-5 h-5" /> New Admin
-               </button>
-            )}
-            {activeTab === 'materials' && (
-              <button onClick={() => setShowAddModal(true)} className="btn-primary">
-                <PlusCircle className="w-5 h-5" /> Upload Resource
-              </button>
-            )}
-            {activeTab === 'universities' && (
-              <button onClick={() => setShowUniModal(true)} className="btn-primary">
-                <PlusCircle className="w-5 h-5" /> Add University
-              </button>
-            )}
+          <div className="flex gap-2 w-full md:w-auto">
+            {activeTab === 'users' && <button onClick={() => setShowAdminModal(true)} className="btn-primary flex-1 md:flex-none"><UserPlus size={18} /> Add Admin</button>}
+            {activeTab === 'materials' && <button onClick={() => setShowAddModal(true)} className="btn-primary flex-1 md:flex-none"><PlusCircle size={18} /> Upload</button>}
+            {activeTab === 'universities' && <button onClick={() => setShowUniModal(true)} className="btn-primary flex-1 md:flex-none"><PlusCircle size={18} /> New Uni</button>}
           </div>
         </header>
 
         {activeTab === 'materials' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {materials.map(m => (
-              <div key={m.id} className="bg-white p-8 rounded-[2rem] border border-slate-200 shadow-sm hover:shadow-xl transition-all group flex flex-col relative overflow-hidden">
-                <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button onClick={() => handleDeleteMaterial(m.id)} className="p-2 bg-red-50 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all">
-                        <Trash2 className="w-5 h-5" />
-                    </button>
-                </div>
-                <div className="flex items-start gap-4 mb-6">
-                  <div className={`p-4 rounded-2xl shadow-sm ${m.type === 'note' ? 'bg-blue-50 text-blue-600' : 'bg-purple-50 text-purple-600'}`}>
-                    {m.type === 'note' ? <BookOpen className="w-8 h-8" /> : <FileText className="w-8 h-8" />}
+              <div key={m.id} className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm hover:shadow-lg transition-all flex flex-col relative group">
+                <button onClick={() => handleDeleteMaterial(m.id)} className="absolute top-4 right-4 p-2 text-slate-300 hover:text-red-500 transition-colors"><Trash2 size={16} /></button>
+                <div className="flex items-start gap-4 mb-4">
+                  <div className={`p-3 rounded-xl ${m.type === 'note' ? 'bg-indigo-50 text-indigo-600' : 'bg-purple-50 text-purple-600'}`}>
+                    {m.type === 'note' ? <BookOpen size={24} /> : <FileText size={24} />}
                   </div>
-                  <div>
-                    <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-lg ${m.type === 'note' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>
-                        {m.type === 'note' ? 'Lecture Note' : 'Exam Paper'}
-                    </span>
-                    <h3 className="font-bold text-xl text-slate-800 mt-2 line-clamp-1">{m.title}</h3>
+                  <div className="flex-1 overflow-hidden">
+                    <h3 className="font-bold text-slate-800 line-clamp-1 pr-6">{m.title}</h3>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{m.school}</p>
                   </div>
                 </div>
-                <p className="text-sm text-slate-500 font-medium">{m.school}</p>
-                <p className="text-xs text-slate-400 mt-1 uppercase tracking-wider">{m.year}</p>
-                <div className="mt-auto pt-6 border-t border-slate-100 flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-400">Added {new Date(m.createdAt).toLocaleDateString()}</span>
+                <div className="mt-auto flex items-center justify-between text-[10px] font-black uppercase text-slate-300">
+                  <span>Year {m.year}</span>
+                  <span>{new Date(m.createdAt).toLocaleDateString()}</span>
                 </div>
               </div>
             ))}
-            {materials.length === 0 && <EmptyState icon={<FilePlus />} text="No resources yet" description="Start populating the library." />}
+            {materials.length === 0 && <div className="col-span-full py-20 text-center bg-white rounded-3xl border-2 border-dashed border-slate-200 text-slate-400">No resources found.</div>}
           </div>
         )}
 
         {activeTab === 'universities' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
                 {universities.map(u => (
-                    <div key={u.id} className="bg-white p-8 rounded-[2rem] border border-slate-200 shadow-sm hover:shadow-xl transition-all group flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                            <div className="p-4 bg-indigo-50 text-indigo-600 rounded-2xl">
-                                <School className="w-8 h-8" />
-                            </div>
-                            <h3 className="font-bold text-xl text-slate-800">{u.name}</h3>
+                    <div key={u.id} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between group">
+                        <div className="flex items-center gap-3">
+                            <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl"><School size={20} /></div>
+                            <h3 className="font-bold text-slate-800">{u.name}</h3>
                         </div>
-                        <button onClick={() => handleDeleteUni(u.id)} className="p-3 bg-red-50 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all opacity-0 group-hover:opacity-100">
-                            <Trash2 className="w-5 h-5" />
-                        </button>
+                        <button onClick={() => handleDeleteUni(u.id)} className="p-2 text-slate-300 hover:text-red-500 transition-colors"><Trash2 size={16} /></button>
                     </div>
                 ))}
-                {universities.length === 0 && <EmptyState icon={<School />} text="No Universities" description="Add universities so students can register." />}
             </div>
         )}
 
         {activeTab === 'users' && (
-          <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-200 overflow-hidden">
+          <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm">
             <div className="overflow-x-auto">
-                <table className="w-full text-left">
+                <table className="w-full text-left text-sm">
                 <thead>
                     <tr className="bg-slate-50 border-b border-slate-200">
-                    <th className="px-8 py-6 font-bold text-slate-500 uppercase tracking-widest text-[10px]">Identity</th>
-                    <th className="px-8 py-6 font-bold text-slate-500 uppercase tracking-widest text-[10px]">Affiliation</th>
-                    <th className="px-8 py-6 font-bold text-slate-500 uppercase tracking-widest text-[10px]">Status</th>
-                    <th className="px-8 py-6 font-bold text-slate-500 uppercase tracking-widest text-[10px] text-right">Actions</th>
+                        <th className="px-6 py-4 font-bold text-slate-500 uppercase tracking-widest text-[10px]">Scholar</th>
+                        <th className="px-6 py-4 font-bold text-slate-500 uppercase tracking-widest text-[10px]">Institution</th>
+                        <th className="px-6 py-4 font-bold text-slate-500 uppercase tracking-widest text-[10px]">Status</th>
+                        <th className="px-6 py-4 font-bold text-slate-500 uppercase tracking-widest text-[10px] text-right">Actions</th>
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                     {users.map(u => (
-                    <tr key={u.id} className="hover:bg-slate-50/50 transition-colors group">
-                        <td className="px-8 py-6">
-                            <div className="flex items-center gap-4">
-                                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-bold ${u.role === 'admin' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-400'}`}>
-                                    {u.email[0].toUpperCase()}
-                                </div>
-                                <div className="font-bold text-slate-800">{u.email}</div>
-                            </div>
+                    <tr key={u.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="px-6 py-4">
+                            <div className="font-bold text-slate-800 truncate max-w-[150px]">{u.email}</div>
+                            <div className="text-[10px] text-indigo-500 font-bold uppercase">{u.role}</div>
                         </td>
-                        <td className="px-8 py-6 text-slate-600 font-medium">{u.school}</td>
-                        <td className="px-8 py-6">
-                            {u.role === 'admin' ? (
-                                <Badge color="indigo" label="Admin" icon={<ShieldCheck className="w-3 h-3" />} />
-                            ) : u.subscriptionExpiry ? (
-                                <Badge color="green" label="Active" icon={<CheckCircle className="w-3 h-3" />} />
-                            ) : (
-                                <Badge color="amber" label="Unpaid" />
-                            )}
+                        <td className="px-6 py-4 text-slate-500 font-medium whitespace-nowrap">{u.school}</td>
+                        <td className="px-6 py-4">
+                            {u.role === 'admin' ? <Badge color="indigo" label="Admin" /> : 
+                             u.subscriptionExpiry ? <Badge color="green" label="Active" /> : 
+                             <Badge color="amber" label="Unpaid" />}
                         </td>
-                        <td className="px-8 py-6 text-right">
+                        <td className="px-6 py-4 text-right whitespace-nowrap">
                             {u.role === 'student' && (
-                                <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all">
-                                    {!u.subscriptionExpiry && (
-                                        <button onClick={() => grantAccess(u.id)} className="text-xs px-4 py-2 bg-green-600 text-white rounded-xl font-bold">Approve</button>
-                                    )}
-                                    <button onClick={() => promoteUser(u.id)} className="text-xs px-4 py-2 bg-indigo-50 text-indigo-600 rounded-xl font-bold">Promote</button>
+                                <div className="flex justify-end gap-2">
+                                    {!u.subscriptionExpiry && <button onClick={() => grantAccess(u.id)} className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-[10px] font-black">ACTIVATE</button>}
+                                    <button onClick={() => promoteUser(u.id)} className="px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-lg text-[10px] font-black">ADMIN</button>
                                 </div>
                             )}
                         </td>
@@ -294,93 +260,62 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
         )}
 
         {activeTab === 'payments' && (
-            <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-200 overflow-hidden">
-                <table className="w-full text-left">
-                    <thead>
-                        <tr className="bg-slate-50 border-b border-slate-200">
-                            <th className="px-8 py-6 font-bold text-slate-500 uppercase tracking-widest text-[10px]">Student Email</th>
-                            <th className="px-8 py-6 font-bold text-slate-500 uppercase tracking-widest text-[10px]">M-Pesa Code</th>
-                            <th className="px-8 py-6 font-bold text-slate-500 uppercase tracking-widest text-[10px]">Amount</th>
-                            <th className="px-8 py-6 font-bold text-slate-500 uppercase tracking-widest text-[10px]">Date</th>
-                            <th className="px-8 py-6 font-bold text-slate-500 uppercase tracking-widest text-[10px]">Status</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                        {payments.map(p => (
-                            <tr key={p.id} className="hover:bg-slate-50/50">
-                                <td className="px-8 py-6 font-bold text-slate-800">{p.userEmail}</td>
-                                <td className="px-8 py-6">
-                                    <div className="flex items-center gap-2 text-slate-500 font-mono font-bold">
-                                        <Hash className="w-3 h-3" />
-                                        {p.mpesaCode}
-                                    </div>
-                                </td>
-                                <td className="px-8 py-6 font-black text-indigo-600">KES {p.amount}</td>
-                                <td className="px-8 py-6 text-slate-400 text-xs font-bold">{new Date(p.createdAt).toLocaleString()}</td>
-                                <td className="px-8 py-6">
-                                    <Badge color="green" label="Success" />
-                                </td>
+            <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm">
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm">
+                        <thead>
+                            <tr className="bg-slate-50 border-b border-slate-200">
+                                <th className="px-6 py-4 font-bold text-slate-500 uppercase tracking-widest text-[10px]">Email</th>
+                                <th className="px-6 py-4 font-bold text-slate-500 uppercase tracking-widest text-[10px]">Code</th>
+                                <th className="px-6 py-4 font-bold text-slate-500 uppercase tracking-widest text-[10px]">Amount</th>
+                                <th className="px-6 py-4 font-bold text-slate-500 uppercase tracking-widest text-[10px]">Date</th>
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
-                {payments.length === 0 && <div className="p-20 text-center text-slate-400 font-bold">No payments found in history.</div>}
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {payments.map(p => (
+                                <tr key={p.id}>
+                                    <td className="px-6 py-4 font-bold text-slate-800">{p.userEmail}</td>
+                                    <td className="px-6 py-4 font-mono font-bold text-indigo-600">{p.mpesaCode}</td>
+                                    <td className="px-6 py-4 font-black">KES {p.amount}</td>
+                                    <td className="px-6 py-4 text-slate-400 text-[10px]">{new Date(p.createdAt).toLocaleDateString()}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         )}
 
-        {/* Modal: Add Material */}
+        {/* Modals */}
         {showAddModal && (
-          <Modal title="Upload Study Material" onClose={() => setShowAddModal(false)}>
-            <form onSubmit={handleAddMaterial} className="space-y-6">
-                <div>
-                  <label className="label">Title</label>
-                  <input required className="input" value={newTitle} onChange={e => setNewTitle(e.target.value)} placeholder="e.g. Physics Revision 2024" />
-                </div>
+          <Modal title="Upload Resource" onClose={() => setShowAddModal(false)}>
+            <form onSubmit={handleAddMaterial} className="space-y-4">
+                <div><label className="label">Resource Title</label><input required className="input" value={newTitle} onChange={e => setNewTitle(e.target.value)} placeholder="e.g. Unit 1 Introduction" /></div>
                 <div className="grid grid-cols-2 gap-4">
-                    <div>
-                        <label className="label">Category</label>
-                        <select className="input" value={newType} onChange={e => setNewType(e.target.value as any)}>
-                            <option value="note">Study Note</option>
-                            <option value="past-paper">Past Paper</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label className="label">Academic Year</label>
-                        <select className="input" value={newYear} onChange={e => setNewYear(e.target.value)}>
-                            <option>First Year</option><option>Second Year</option>
-                            <option>Third Year</option><option>Fourth Year</option>
-                        </select>
-                    </div>
+                    <div><label className="label">Type</label><select className="input" value={newType} onChange={e => setNewType(e.target.value as any)}><option value="note">Notes</option><option value="past-paper">Past Paper</option></select></div>
+                    <div><label className="label">Year</label><select className="input" value={newYear} onChange={e => setNewYear(e.target.value)}><option>First Year</option><option>Second Year</option><option>Third Year</option><option>Fourth Year</option></select></div>
                 </div>
-                <div>
-                  <label className="label">Select University</label>
-                  <select required className="input" value={newSchool} onChange={e => setNewSchool(e.target.value)}>
-                    <option value="">Select a University...</option>
-                    {universities.map(u => <option key={u.id} value={u.name}>{u.name}</option>)}
-                  </select>
-                </div>
-                <button type="submit" className="w-full btn-submit">Publish to Library</button>
-              </form>
+                <div><label className="label">University</label><select required className="input" value={newSchool} onChange={e => setNewSchool(e.target.value)}><option value="">Select University...</option>{universities.map(u => <option key={u.id} value={u.name}>{u.name}</option>)}</select></div>
+                <button type="submit" className="w-full btn-submit">Publish Resource</button>
+            </form>
           </Modal>
         )}
 
-        {/* Modal: Add Admin */}
         {showAdminModal && (
-          <Modal title="Create Admin Account" onClose={() => setShowAdminModal(false)}>
+          <Modal title="New Administrator" onClose={() => setShowAdminModal(false)}>
               <form onSubmit={handleAddAdmin} className="space-y-4">
                 <input type="email" required placeholder="Email Address" className="input" value={adminEmail} onChange={e => setAdminEmail(e.target.value)} />
-                <input type="password" required placeholder="Temporary Password" className="input" value={adminPass} onChange={e => setAdminPass(e.target.value)} />
-                <button type="submit" className="w-full btn-submit bg-slate-900">Create Access</button>
+                <input type="password" required placeholder="Password" className="input" value={adminPass} onChange={e => setAdminPass(e.target.value)} />
+                <button type="submit" className="w-full btn-submit">Grant Admin Access</button>
               </form>
           </Modal>
         )}
 
-        {/* Modal: Add University */}
         {showUniModal && (
-          <Modal title="Register New Institution" onClose={() => setShowUniModal(false)}>
+          <Modal title="Register University" onClose={() => setShowUniModal(false)}>
               <form onSubmit={handleAddUni} className="space-y-4">
-                <input required placeholder="University Name (e.g. Kenyatta University)" className="input" value={uniName} onChange={e => setUniName(e.target.value)} />
-                <button type="submit" className="w-full btn-submit">Save University</button>
+                <input required placeholder="Name of Institution" className="input" value={uniName} onChange={e => setUniName(e.target.value)} />
+                <button type="submit" className="w-full btn-submit">Add University</button>
               </form>
           </Modal>
         )}
@@ -389,32 +324,23 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
   );
 };
 
-// Internal Components
 const SidebarLink = ({ active, onClick, icon, label }: any) => (
-    <button onClick={onClick} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-medium ${active ? 'bg-indigo-600 text-white shadow-lg' : 'hover:bg-slate-800'}`}>
-        {React.cloneElement(icon, { className: "w-5 h-5" })} {label}
+    <button onClick={onClick} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${active ? 'bg-indigo-600 text-white shadow-lg' : 'hover:bg-slate-800'}`}>
+        {React.cloneElement(icon, { size: 18 })} {label}
     </button>
 );
 
-const EmptyState = ({ icon, text, description }: any) => (
-    <div className="col-span-full py-32 text-center bg-white rounded-[3rem] border-4 border-dashed border-slate-100">
-        <div className="text-slate-200 mx-auto mb-6"> {React.cloneElement(icon, { size: 80, className: "mx-auto" })}</div>
-        <h3 className="text-2xl font-bold text-slate-800">{text}</h3>
-        <p className="text-slate-500 max-w-xs mx-auto mt-2">{description}</p>
-    </div>
-);
-
-const Badge = ({ color, label, icon }: any) => (
-    <div className={`flex items-center gap-1.5 bg-${color}-50 text-${color}-600 px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-widest w-fit border border-${color}-100`}>
-        {icon} {label}
+const Badge = ({ color, label }: any) => (
+    <div className={`bg-${color}-50 text-${color}-600 px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border border-${color}-100 w-fit`}>
+        {label}
     </div>
 );
 
 const Modal = ({ title, onClose, children }: any) => (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-md">
-        <div className="bg-white rounded-[2.5rem] p-10 w-full max-w-lg relative shadow-2xl animate-in fade-in zoom-in duration-300">
-            <button onClick={onClose} className="absolute top-8 right-8 text-slate-300 hover:text-slate-600 transition-colors"><X className="w-8 h-8" /></button>
-            <h3 className="text-3xl font-black mb-8 text-slate-800">{title}</h3>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
+        <div className="bg-white rounded-3xl p-8 w-full max-w-md relative shadow-2xl animate-in zoom-in duration-200">
+            <button onClick={onClose} className="absolute top-6 right-6 text-slate-300 hover:text-slate-600"><X /></button>
+            <h3 className="text-xl font-black mb-6 text-slate-800">{title}</h3>
             {children}
         </div>
     </div>
