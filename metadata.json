@@ -1,6 +1,6 @@
 {
-  "name": "Copy of Study Pal",
-  "description": "A comprehensive study material platform for university students featuring notes, past papers, M-Pesa integration, and an AI study assistant.",
+  "name": "Study Pal",
+  "description": "Premium University Resource Hub with Note management, M-Pesa integration, and AI study tutor.",
   "requestFramePermissions": [
     "camera",
     "microphone"

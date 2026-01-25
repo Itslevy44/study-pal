@@ -22,7 +22,8 @@ import {
   X,
   ShieldCheck,
   Smartphone,
-  ClipboardCheck
+  ClipboardCheck,
+  DownloadCloud
 } from 'lucide-react';
 
 interface StudentDashboardProps {
@@ -91,45 +92,60 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, onR
     refreshData();
   };
 
-  const verifyPayment = () => {
-    if (!mpesaMessage) return alert('Please paste your M-Pesa confirmation message.');
+  const verifyPayment = (e: React.MouseEvent) => {
+    // Prevent any default behavior that might interfere
+    e.preventDefault();
+    e.stopPropagation();
+
+    console.log("Verifying payment message:", mpesaMessage);
+
+    if (!mpesaMessage || mpesaMessage.trim().length < 20) {
+      return alert('Please paste the complete M-Pesa confirmation message.');
+    }
 
     // Robust Regex to handle variations in M-Pesa messages
-    // Transaction code is typically the first word, 10 alphanumeric characters.
+    // Pattern 1: Starts with code, then Confirmed.
+    // Pattern 2: Anywhere in the string find 10 alphanumeric chars followed by confirmed or amount
+    const cleanMessage = mpesaMessage.trim();
     const codeRegex = /\b([A-Z0-9]{10})\b/i;
-    // Amount usually follows 'KES' or 'Ksh'
     const amountRegex = /(?:KES|Ksh)\s*([\d,]+(?:\.\d{2})?)/i;
 
-    const codeMatch = mpesaMessage.match(codeRegex);
-    const amountMatch = mpesaMessage.match(amountRegex);
+    const codeMatch = cleanMessage.match(codeRegex);
+    const amountMatch = cleanMessage.match(amountRegex);
 
     if (!codeMatch) {
-      return alert('Verification failed: Could not find a valid 10-character M-Pesa code in the text.');
+      return alert('Verification Error: No valid M-Pesa transaction code found. Please ensure you copied the full message correctly.');
     }
 
     const code = codeMatch[1].toUpperCase();
     const amountStr = amountMatch ? amountMatch[1].replace(/,/g, '') : "0";
     const amount = parseFloat(amountStr);
 
-    if (amount < 50) {
-      return alert(`Verification failed: Minimum payment is KES 50. Detected amount: KES ${amount}.`);
+    console.log("Extracted Code:", code, "Extracted Amount:", amount);
+
+    if (amount < 50 && amount !== 0) { // Some messages might hide amount but have code
+      return alert(`Detected amount: KES ${amount}. A minimum of KES 50 is required for full semester access.`);
     }
 
     if (api.isMpesaCodeUsed(code)) {
-      return alert('Verification failed: This M-Pesa code has already been used.');
+      return alert('This M-Pesa code has already been used to activate an account.');
     }
 
-    // Process payment
-    api.recordPayment(user.id, user.email, amount, 'Direct Transfer', code);
-    api.updateUserSubscription(user.id, 4);
-    
-    setShowPayment(false);
-    setMpesaMessage('');
-    
-    // Notify parent to refresh the user state (remove lock screens)
-    if (onRefresh) onRefresh();
-    
-    alert(`Success! Account activated with code ${code}. You now have full access.`);
+    // SUCCESS: Record and Activate
+    try {
+        api.recordPayment(user.id, user.email, Math.max(amount, 50), 'Direct Transfer', code);
+        api.updateUserSubscription(user.id, 4);
+        
+        setShowPayment(false);
+        setMpesaMessage('');
+        
+        if (onRefresh) onRefresh();
+        
+        alert(`Academic Hub Unlocked! Transaction ${code} verified successfully.`);
+    } catch (err) {
+        console.error("Activation failed", err);
+        alert("An error occurred during activation. Please try again.");
+    }
   };
 
   const filteredMaterials = materials.filter(m => 
@@ -249,23 +265,39 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, onR
           )}
 
           {activeTab === 'profile' && (
-            <div className="max-w-2xl mx-auto bg-white rounded-[3rem] p-12 shadow-sm">
-                <div className="flex justify-between items-start mb-12">
-                    <div>
-                        <h3 className="text-3xl font-black text-slate-800">{user.email}</h3>
-                        <p className="text-slate-400 font-bold mt-1 text-lg">{user.school} • {user.year}</p>
-                    </div>
-                    {isSubscribed && <Badge color="green" label="Premium" />}
+            <div className="max-w-2xl mx-auto space-y-8">
+              <div className="bg-white rounded-[3rem] p-12 shadow-sm">
+                  <div className="flex justify-between items-start mb-12">
+                      <div>
+                          <h3 className="text-3xl font-black text-slate-800">{user.email}</h3>
+                          <p className="text-slate-400 font-bold mt-1 text-lg">{user.school} • {user.year}</p>
+                      </div>
+                      {isSubscribed && <Badge color="green" label="Premium" />}
+                  </div>
+                  <div className="space-y-6">
+                      <div className="p-8 bg-slate-50 rounded-[2rem] text-center grid grid-cols-2 gap-8">
+                          <div><p className="text-3xl font-black">{tasks.length}</p><p className="text-xs uppercase font-bold text-slate-400">Tasks</p></div>
+                          <div><p className="text-3xl font-black">{isSubscribed ? 'Active' : 'Unpaid'}</p><p className="text-xs uppercase font-bold text-slate-400">Account</p></div>
+                      </div>
+                      <button onClick={onLogout} className="w-full py-6 bg-red-50 text-red-600 font-black text-lg rounded-[1.5rem] flex items-center justify-center gap-3">
+                          <LogOut /> Sign Out
+                      </button>
+                  </div>
+              </div>
+
+              {/* Install Card */}
+              <div className="bg-gradient-to-br from-indigo-500 to-indigo-700 p-10 rounded-[2.5rem] text-white shadow-xl shadow-indigo-100 flex items-center justify-between">
+                <div>
+                  <h4 className="text-2xl font-black mb-1">Study Pal for Android</h4>
+                  <p className="text-sm opacity-80">Install the app on your home screen for quick access.</p>
                 </div>
-                <div className="space-y-6">
-                    <div className="p-8 bg-slate-50 rounded-[2rem] text-center grid grid-cols-2 gap-8">
-                        <div><p className="text-3xl font-black">{tasks.length}</p><p className="text-xs uppercase font-bold text-slate-400">Tasks</p></div>
-                        <div><p className="text-3xl font-black">{isSubscribed ? 'Active' : 'Unpaid'}</p><p className="text-xs uppercase font-bold text-slate-400">Account</p></div>
-                    </div>
-                    <button onClick={onLogout} className="w-full py-6 bg-red-50 text-red-600 font-black text-lg rounded-[1.5rem] flex items-center justify-center gap-3">
-                        <LogOut /> Sign Out
-                    </button>
-                </div>
+                <button 
+                  onClick={() => alert('Tap your browser menu (3 dots) and select "Install app" to add Study Pal to your home screen.')}
+                  className="bg-white text-indigo-600 p-4 rounded-2xl hover:scale-105 active:scale-95 transition-all"
+                >
+                  <DownloadCloud className="w-8 h-8" />
+                </button>
+              </div>
             </div>
           )}
         </main>
