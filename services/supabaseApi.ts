@@ -1,5 +1,6 @@
 import { supabase } from './supabaseClient';
 import { StudyMaterial, User, TaskItem, University, Note, ScheduleItem, StudySession, AnalyticsData } from '../types';
+import * as storageService from './storageService';
 
 // Auth Methods
 export const authApi = {
@@ -119,6 +120,48 @@ export const materialsApi = {
       return data;
     } catch (error) {
       console.error('Error adding material:', error);
+      return null;
+    }
+  },
+
+  async uploadMaterialWithFile(
+    file: File,
+    material: { title: string; type: string; school: string; year: string; description: string; uploadedBy: string }
+  ) {
+    try {
+      // Upload file to Supabase Storage
+      const uploadResult = await storageService.uploadFile(
+        file,
+        material.uploadedBy,
+        material.title
+      );
+
+      if (!uploadResult) {
+        throw new Error('File upload failed');
+      }
+
+      // Create material record in database
+      const { data, error } = await supabase
+        .from('study_materials')
+        .insert([{
+          title: material.title,
+          type: material.type,
+          file_url: uploadResult.url,
+          file_name: file.name,
+          file_extension: file.name.split('.').pop() || '',
+          file_size: file.size,
+          school: material.school,
+          year: material.year,
+          description: material.description,
+          uploaded_by: material.uploadedBy
+        }])
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error uploading material:', error);
       return null;
     }
   },
