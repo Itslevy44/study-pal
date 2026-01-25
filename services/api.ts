@@ -73,6 +73,14 @@ export const api = {
     saveToStorage(STORAGE_KEYS.MATERIALS, items);
     return newItem;
   },
+  updateMaterial: (id: string, data: Partial<StudyMaterial>) => {
+    const items = getFromStorage<StudyMaterial[]>(STORAGE_KEYS.MATERIALS, []);
+    const index = items.findIndex(i => i.id === id);
+    if (index !== -1) {
+      items[index] = { ...items[index], ...data };
+      saveToStorage(STORAGE_KEYS.MATERIALS, items);
+    }
+  },
   deleteMaterial: (id: string) => {
     const items = getFromStorage<StudyMaterial[]>(STORAGE_KEYS.MATERIALS, []);
     saveToStorage(STORAGE_KEYS.MATERIALS, items.filter(i => i.id !== id));

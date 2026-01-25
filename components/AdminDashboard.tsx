@@ -1,5 +1,6 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import React from 'react';
 import { User, StudyMaterial, University, PaymentRecord } from '../types';
 import { api } from '../services/api';
 import Logo from './Logo';
@@ -23,7 +24,9 @@ import {
   FileCode,
   FileImage,
   FileArchive,
-  FileBadge
+  FileBadge,
+  Edit3,
+  Save
 } from 'lucide-react';
 
 interface AdminDashboardProps {
@@ -39,11 +42,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
   
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [showAdminModal, setShowAdminModal] = useState(false);
   const [showUniModal, setShowUniModal] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   
-  // New Material State
+  // New/Editing Material State
+  const [currentMaterialId, setCurrentMaterialId] = useState<string | null>(null);
   const [newTitle, setNewTitle] = useState('');
   const [newType, setNewType] = useState<'note' | 'past-paper'>('note');
   const [newSchool, setNewSchool] = useState('');
@@ -105,6 +110,40 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
     setSelectedFile(null);
     setShowAddModal(false);
     refreshData();
+  };
+
+  const handleEditInit = (m: StudyMaterial) => {
+    setCurrentMaterialId(m.id);
+    setNewTitle(m.title);
+    setNewType(m.type);
+    setNewSchool(m.school);
+    setNewYear(m.year);
+    setSelectedFile(null); // Optional: don't force a new file unless they pick one
+    setShowEditModal(true);
+  };
+
+  const handleUpdateMaterial = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentMaterialId) return;
+
+    const updateData: Partial<StudyMaterial> = {
+      title: newTitle,
+      type: newType,
+      school: newSchool,
+      year: newYear,
+    };
+
+    if (selectedFile) {
+      updateData.fileUrl = selectedFile.data;
+      updateData.fileName = selectedFile.name;
+      updateData.fileExtension = selectedFile.ext;
+    }
+
+    api.updateMaterial(currentMaterialId, updateData);
+    setShowEditModal(false);
+    setCurrentMaterialId(null);
+    refreshData();
+    alert('Resource updated successfully!');
   };
 
   const handleAddAdmin = (e: React.FormEvent) => {
@@ -232,7 +271,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {materials.map(m => (
               <div key={m.id} className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm hover:shadow-lg transition-all flex flex-col relative group">
-                <button onClick={() => handleDeleteMaterial(m.id)} className="absolute top-4 right-4 p-2 text-slate-300 hover:text-red-500 transition-colors"><Trash2 size={16} /></button>
+                <div className="absolute top-4 right-4 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                   <button onClick={() => handleEditInit(m)} className="p-2 text-slate-300 hover:text-indigo-600 transition-colors bg-white rounded-lg shadow-sm border border-slate-100"><Edit3 size={16} /></button>
+                   <button onClick={() => handleDeleteMaterial(m.id)} className="p-2 text-slate-300 hover:text-red-500 transition-colors bg-white rounded-lg shadow-sm border border-slate-100"><Trash2 size={16} /></button>
+                </div>
                 <div className="flex items-start gap-4 mb-4">
                   <div className={`p-3 rounded-xl ${m.type === 'note' ? 'bg-indigo-50' : 'bg-purple-50'}`}>
                     {getFormatIcon(m.fileExtension)}
@@ -405,6 +447,75 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
 
                 <button type="submit" className="w-full btn-submit flex items-center justify-center gap-2">
                   <Upload size={18} /> Publish Resource
+                </button>
+            </form>
+          </Modal>
+        )}
+
+        {showEditModal && (
+          <Modal title="Edit Resource" onClose={() => setShowEditModal(false)}>
+            <form onSubmit={handleUpdateMaterial} className="space-y-4">
+                <div>
+                  <label className="label">Resource Title</label>
+                  <input required className="input" value={newTitle} onChange={e => setNewTitle(e.target.value)} />
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="label">Type</label>
+                      <select className="input" value={newType} onChange={e => setNewType(e.target.value as any)}>
+                        <option value="note">Notes</option>
+                        <option value="past-paper">Past Paper</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="label">Year</label>
+                      <select className="input" value={newYear} onChange={e => setNewYear(e.target.value)}>
+                        <option>First Year</option>
+                        <option>Second Year</option>
+                        <option>Third Year</option>
+                        <option>Fourth Year</option>
+                      </select>
+                    </div>
+                </div>
+
+                <div>
+                  <label className="label">University</label>
+                  <select required className="input" value={newSchool} onChange={e => setNewSchool(e.target.value)}>
+                    <option value="">Select University...</option>
+                    {universities.map(u => <option key={u.id} value={u.name}>{u.name}</option>)}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="label">Change File (Optional)</label>
+                  <div 
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-full border-2 border-dashed border-slate-200 rounded-xl p-4 flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-indigo-400 transition-all bg-slate-50"
+                  >
+                    <input 
+                      type="file" 
+                      ref={fileInputRef} 
+                      className="hidden" 
+                      onChange={handleFileChange}
+                      accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.zip,.rar,.txt"
+                    />
+                    {selectedFile ? (
+                      <div className="flex flex-col items-center text-center">
+                        <CheckCircle className="text-green-500 w-6 h-6" />
+                        <span className="text-[10px] font-bold text-slate-700 mt-1">{selectedFile.name}</span>
+                      </div>
+                    ) : (
+                      <>
+                        <Upload className="text-slate-300 w-6 h-6" />
+                        <span className="text-[10px] font-bold text-slate-500">Click to replace file</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                <button type="submit" className="w-full btn-submit flex items-center justify-center gap-2">
+                  <Save size={18} /> Update Resource
                 </button>
             </form>
           </Modal>
