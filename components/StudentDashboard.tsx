@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { User, StudyMaterial, TaskItem, University } from '../types';
+import { User, StudyMaterial, TaskItem, University, Note, ScheduleItem, AnalyticsData } from '../types';
 import { api } from '../services/api';
 import { getStudyHelp } from '../services/geminiService';
 import Logo from './Logo';
@@ -30,7 +30,11 @@ import {
   Shield,
   Edit3,
   Filter,
-  ChevronRight
+  ChevronRight,
+  BarChart3,
+  Clock,
+  AlertCircle,
+  TrendingUp
 } from 'lucide-react';
 
 interface StudentDashboardProps {
@@ -43,7 +47,10 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, onR
   const [materials, setMaterials] = useState<StudyMaterial[]>([]);
   const [offlineMaterials, setOfflineMaterials] = useState<StudyMaterial[]>([]);
   const [tasks, setTasks] = useState<TaskItem[]>([]);
-  const [activeTab, setActiveTab] = useState<'hub' | 'tasks' | 'ai' | 'profile' | 'saved'>('hub');
+  const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
+  const [notes, setNotes] = useState<Note[]>([]);
+  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
+  const [activeTab, setActiveTab] = useState<'hub' | 'tasks' | 'ai' | 'profile' | 'saved' | 'schedule' | 'analytics'>('hub');
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'note' | 'past-paper'>('all');
   const [mpesaMessage, setMpesaMessage] = useState('');
@@ -61,7 +68,19 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, onR
   const [showPayment, setShowPayment] = useState(false);
   const [viewingMaterial, setViewingMaterial] = useState<StudyMaterial | null>(null);
 
-  // Profile Edit States
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [scheduleTitle, setScheduleTitle] = useState('');
+  const [scheduleSubject, setScheduleSubject] = useState('');
+  const [scheduleDay, setScheduleDay] = useState('Monday');
+  const [scheduleStartTime, setScheduleStartTime] = useState('09:00');
+  const [scheduleEndTime, setScheduleEndTime] = useState('10:00');
+  const [scheduleLocation, setScheduleLocation] = useState('');
+  const [scheduleColor, setScheduleColor] = useState('indigo');
+
+  const [showNotesModal, setShowNotesModal] = useState(false);
+  const [noteContent, setNoteContent] = useState('');
+  const [selectedMaterialForNote, setSelectedMaterialForNote] = useState<StudyMaterial | null>(null);
+
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [editEmail, setEditEmail] = useState(user.email);
   const [editSchool, setEditSchool] = useState(user.school);
@@ -89,6 +108,9 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, onR
     setMaterials(api.getMaterials());
     setOfflineMaterials(api.getOffline(user.id));
     setTasks(api.getTasks(user.id));
+    setSchedule(api.getSchedule(user.id));
+    setNotes(api.getNotes(user.id, '') as any);
+    setAnalytics(api.getAnalytics(user.id));
   };
 
   const handleAskAI = async () => {
@@ -115,6 +137,44 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, onR
     setTaskContent('');
     setTaskType('note');
     setShowTaskModal(false);
+    refreshData();
+  };
+
+  const handleAddScheduleItem = () => {
+    if (!scheduleTitle.trim() || !scheduleSubject.trim()) {
+      alert('Please fill in title and subject');
+      return;
+    }
+    api.addScheduleItem(user.id, {
+      userId: user.id,
+      title: scheduleTitle,
+      subject: scheduleSubject,
+      day: scheduleDay,
+      startTime: scheduleStartTime,
+      endTime: scheduleEndTime,
+      location: scheduleLocation,
+      color: scheduleColor
+    });
+    setScheduleTitle('');
+    setScheduleSubject('');
+    setScheduleDay('Monday');
+    setScheduleStartTime('09:00');
+    setScheduleEndTime('10:00');
+    setScheduleLocation('');
+    setScheduleColor('indigo');
+    setShowScheduleModal(false);
+    refreshData();
+  };
+
+  const handleAddNote = () => {
+    if (!noteContent.trim() || !selectedMaterialForNote) {
+      alert('Please enter note content and select a material');
+      return;
+    }
+    api.addNote(user.id, selectedMaterialForNote.id, noteContent);
+    setNoteContent('');
+    setSelectedMaterialForNote(null);
+    setShowNotesModal(false);
     refreshData();
   };
 
@@ -161,11 +221,10 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, onR
     alert('Profile updated successfully!');
   };
 
+  const searchResults = api.searchMaterials(search);
   const filteredMaterials = (materialsList: StudyMaterial[]) => materialsList.filter(m => {
-    const matchesSearch = m.title.toLowerCase().includes(search.toLowerCase()) || 
-                         m.school.toLowerCase().includes(search.toLowerCase());
     const matchesType = filterType === 'all' || m.type === filterType;
-    return matchesSearch && matchesType;
+    return matchesType;
   });
 
   return (
@@ -194,10 +253,12 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, onR
       </header>
 
       <div className="flex flex-1 overflow-hidden relative">
-        <nav className="w-full md:w-64 bg-white md:border-r border-slate-200 flex md:flex-col fixed bottom-0 left-0 md:static z-40 h-16 md:h-full justify-around md:justify-start md:pt-8 shadow-[0_-4px_15px_rgba(0,0,0,0.05)] md:shadow-none">
+        <nav className="w-full md:w-64 bg-white md:border-r border-slate-200 flex md:flex-col fixed bottom-0 left-0 md:static z-40 h-16 md:h-full justify-around md:justify-start md:pt-8 shadow-[0_-4px_15px_rgba(0,0,0,0.05)] md:shadow-none overflow-y-auto">
           <NavButton active={activeTab === 'hub'} onClick={() => setActiveTab('hub')} icon={<LayoutGrid />} label="Hub" />
           <NavButton active={activeTab === 'saved'} onClick={() => setActiveTab('saved')} icon={<DownloadCloud />} label="Saved" />
-          <NavButton active={activeTab === 'tasks'} onClick={() => setActiveTab('tasks')} icon={<Calendar />} label="Space" />
+          <NavButton active={activeTab === 'schedule'} onClick={() => setActiveTab('schedule')} icon={<Calendar />} label="Schedule" />
+          <NavButton active={activeTab === 'tasks'} onClick={() => setActiveTab('tasks')} icon={<ClipboardCheck />} label="Space" />
+          <NavButton active={activeTab === 'analytics'} onClick={() => setActiveTab('analytics')} icon={<BarChart3 />} label="Analytics" />
           <NavButton active={activeTab === 'ai'} onClick={() => setActiveTab('ai')} icon={<MessageSquare />} label="Tutor" />
           <NavButton active={activeTab === 'profile'} onClick={() => setActiveTab('profile')} icon={<UserCircle />} label="Me" />
           <button onClick={onLogout} className="hidden md:flex items-center gap-3 px-8 py-4 text-red-500 hover:bg-red-50 mt-auto mb-10 mx-4 rounded-xl transition-all font-bold text-sm">
@@ -216,7 +277,6 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, onR
                     <input type="text" placeholder="Search resources..." className="w-full pl-12 pr-4 py-3 bg-white border-2 border-slate-100 rounded-xl font-medium shadow-sm focus:border-indigo-500" value={search} onChange={e => setSearch(e.target.value)} />
                   </div>
                   
-                  {/* Filter Pills */}
                   <div className="flex gap-2 bg-white p-1 rounded-2xl border border-slate-100 shadow-sm w-full sm:w-auto overflow-x-auto no-scrollbar">
                     <FilterButton active={filterType === 'all'} onClick={() => setFilterType('all')} label="All" />
                     <FilterButton active={filterType === 'note'} onClick={() => setFilterType('note')} label="Notes" icon={<BookOpen size={14} />} />
@@ -225,8 +285,14 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, onR
                 </div>
               </div>
               
+              {search && searchResults.length > 0 && (
+                <div className="mb-8 p-4 bg-blue-50 border border-blue-200 rounded-2xl">
+                  <p className="text-sm font-bold text-blue-700">Found {searchResults.length} result{searchResults.length !== 1 ? 's' : ''} for "{search}"</p>
+                </div>
+              )}
+              
               <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-                {filteredMaterials(materials).map(m => (
+                {(search ? filteredMaterials(searchResults) : filteredMaterials(materials)).map(m => (
                   <MaterialCard 
                     key={m.id} 
                     material={m} 
@@ -234,9 +300,13 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, onR
                     onOpen={() => handleOpenMaterial(m)}
                     onSave={() => handleSaveToApp(m)}
                     onUpgrade={() => setShowPayment(true)}
+                    onAddNote={() => {
+                      setSelectedMaterialForNote(m);
+                      setShowNotesModal(true);
+                    }}
                   />
                 ))}
-                {filteredMaterials(materials).length === 0 && (
+                {(search ? searchResults : materials).length === 0 && (
                    <div className="col-span-full py-20 text-center bg-white rounded-3xl border-2 border-dashed border-slate-100 flex flex-col items-center">
                       <FileSearch size={48} className="text-slate-200 mb-4" />
                       <p className="font-bold text-slate-400">No matching resources found.</p>
@@ -260,7 +330,39 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, onR
                     onOpen={() => handleOpenMaterial(m)}
                     onRemove={() => handleRemoveOffline(m.id)}
                     isSaved={true}
+                    onAddNote={() => {
+                      setSelectedMaterialForNote(m);
+                      setShowNotesModal(true);
+                    }}
                   />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'schedule' && (
+            <div className="max-w-3xl mx-auto animate-in fade-in slide-in-from-bottom-3">
+              <div className="flex justify-between items-end mb-8">
+                <h2 className="text-2xl font-black text-slate-800 tracking-tight">Class Schedule</h2>
+                <button onClick={() => setShowScheduleModal(true)} className="p-3.5 bg-indigo-600 text-white rounded-xl shadow-xl active:scale-90"><PlusCircle /></button>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].map(day => (
+                  <div key={day} className="bg-white rounded-2xl p-6 border border-slate-100">
+                    <h4 className="font-black text-slate-800 mb-4">{day}</h4>
+                    <div className="space-y-3">
+                      {schedule.filter(s => s.day === day).map(item => (
+                        <div key={item.id} className="p-3 rounded-xl border-l-4 bg-slate-50 flex items-start justify-between" style={{borderLeftColor: '#6366f1'}}>
+                          <div className="flex-1">
+                            <p className="font-bold text-sm text-slate-800">{item.title}</p>
+                            <p className="text-xs text-slate-500">{item.startTime} - {item.endTime}</p>
+                            {item.location && <p className="text-xs text-slate-400">{item.location}</p>}
+                          </div>
+                          <button onClick={() => api.deleteScheduleItem(item.id) || refreshData()} className="text-slate-300 hover:text-red-500 p-1"><Trash2 size={16} /></button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>
@@ -286,6 +388,36 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, onR
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {activeTab === 'analytics' && (
+            <div className="max-w-3xl mx-auto animate-in fade-in slide-in-from-bottom-3 space-y-6">
+              <h2 className="text-2xl font-black text-slate-800 tracking-tight">Study Analytics</h2>
+              
+              {analytics && (
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <StatCard icon={<Clock size={24} />} label="Total Study Time" value={`${Math.floor(analytics.totalStudyTime / 60)}h ${analytics.totalStudyTime % 60}m`} color="indigo" />
+                    <StatCard icon={<CheckCircle2 size={24} />} label="Study Sessions" value={analytics.sessionsCount.toString()} color="green" />
+                    <StatCard icon={<TrendingUp size={24} />} label="Avg. Session Duration" value={`${analytics.averageSessionDuration} min`} color="purple" />
+                    <StatCard icon={<BarChart3 size={24} />} label="Last Active" value={new Date(analytics.lastActiveDate).toLocaleDateString()} color="orange" />
+                  </div>
+
+                  <div className="bg-white rounded-2xl p-6 border border-slate-100">
+                    <h4 className="font-black text-slate-800 mb-4 text-lg">Recent Activity</h4>
+                    <div className="space-y-3">
+                      {analytics.sessionsCount === 0 ? (
+                        <p className="text-slate-400 text-center py-8">No study sessions recorded yet. Start studying to see analytics!</p>
+                      ) : (
+                        <div className="p-4 bg-indigo-50 rounded-xl border border-indigo-200">
+                          <p className="text-sm font-bold text-indigo-700">You've been doing great! Keep up the consistent studying.</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           )}
 
@@ -380,7 +512,59 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, onR
         </div>
       )}
 
-      {/* Resource Viewer Modal - Intensive Anti-Screenshot protection */}
+      {/* Schedule Modal */}
+      {showScheduleModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-[2.5rem] p-8 w-full max-w-md shadow-2xl animate-in zoom-in duration-200 max-h-[90vh] overflow-y-auto">
+            <h3 className="text-xl font-black mb-6 text-slate-800">Add Class</h3>
+            <div className="space-y-4">
+              <input required placeholder="Class/Exam Title" className="input" value={scheduleTitle} onChange={e => setScheduleTitle(e.target.value)} />
+              <input required placeholder="Subject" className="input" value={scheduleSubject} onChange={e => setScheduleSubject(e.target.value)} />
+              <select className="input" value={scheduleDay} onChange={e => setScheduleDay(e.target.value)}>
+                {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(d => <option key={d}>{d}</option>)}
+              </select>
+              <div className="grid grid-cols-2 gap-4">
+                <input type="time" className="input" value={scheduleStartTime} onChange={e => setScheduleStartTime(e.target.value)} />
+                <input type="time" className="input" value={scheduleEndTime} onChange={e => setScheduleEndTime(e.target.value)} />
+              </div>
+              <input placeholder="Location (optional)" className="input" value={scheduleLocation} onChange={e => setScheduleLocation(e.target.value)} />
+              <select className="input" value={scheduleColor} onChange={e => setScheduleColor(e.target.value)}>
+                <option value="indigo">Indigo</option><option value="red">Red</option><option value="green">Green</option><option value="blue">Blue</option><option value="purple">Purple</option>
+              </select>
+              <div className="flex gap-3 pt-2">
+                <button onClick={() => setShowScheduleModal(false)} className="flex-1 text-slate-400 text-[10px] font-black uppercase py-3">Cancel</button>
+                <button onClick={handleAddScheduleItem} className="flex-[2] py-4 bg-indigo-600 text-white rounded-2xl font-black text-xs shadow-lg active:scale-95 transition-all uppercase tracking-widest">ADD CLASS</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Notes Modal */}
+      {showNotesModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-[2.5rem] p-8 w-full max-w-md shadow-2xl animate-in zoom-in duration-200">
+            <h3 className="text-xl font-black mb-6 text-slate-800">Add Note</h3>
+            <div className="space-y-4">
+              {selectedMaterialForNote && (
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl">
+                  <p className="text-xs font-bold text-blue-700">Material: {selectedMaterialForNote.title}</p>
+                </div>
+              )}
+              <textarea required placeholder="Write your note here..." className="input h-32 resize-none" value={noteContent} onChange={e => setNoteContent(e.target.value)} />
+              <div className="flex gap-3 pt-2">
+                <button onClick={() => {
+                  setShowNotesModal(false);
+                  setSelectedMaterialForNote(null);
+                }} className="flex-1 text-slate-400 text-[10px] font-black uppercase py-3">Cancel</button>
+                <button onClick={handleAddNote} className="flex-[2] py-4 bg-indigo-600 text-white rounded-2xl font-black text-xs shadow-lg active:scale-95 transition-all uppercase tracking-widest">SAVE NOTE</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Resource Viewer Modal */}
       {viewingMaterial && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black animate-in fade-in duration-300 overflow-hidden select-none">
           <div className="w-full h-full flex flex-col relative">
@@ -473,6 +657,25 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, onR
   );
 };
 
+const StatCard = ({ icon, label, value, color }: any) => {
+  const colors: any = {
+    indigo: 'bg-indigo-50 text-indigo-600',
+    green: 'bg-green-50 text-green-600',
+    purple: 'bg-purple-50 text-purple-600',
+    orange: 'bg-orange-50 text-orange-600'
+  };
+
+  return (
+    <div className="bg-white rounded-2xl p-6 border border-slate-100 flex items-start gap-4">
+      <div className={`p-3 rounded-xl ${colors[color]}`}>{icon}</div>
+      <div className="flex-1">
+        <p className="text-slate-500 text-xs font-bold uppercase tracking-wider">{label}</p>
+        <p className="text-2xl font-black text-slate-800 mt-1">{value}</p>
+      </div>
+    </div>
+  );
+};
+
 const FilterButton = ({ active, onClick, label, icon }: any) => (
   <button 
     onClick={onClick} 
@@ -482,7 +685,7 @@ const FilterButton = ({ active, onClick, label, icon }: any) => (
   </button>
 );
 
-const MaterialCard = ({ material, isSubscribed, onOpen, onSave, onUpgrade, isSaved, onRemove }: any) => (
+const MaterialCard = ({ material, isSubscribed, onOpen, onSave, onUpgrade, isSaved, onRemove, onAddNote }: any) => (
   <div className="bg-white rounded-3xl border border-slate-100 p-6 flex flex-col hover:shadow-2xl transition-all relative overflow-hidden group border-b-4 border-b-slate-200">
     <div className="flex justify-between items-start mb-4">
       <div className={`p-4 rounded-2xl ${material.type === 'note' ? 'bg-indigo-50 text-indigo-600' : 'bg-purple-50 text-purple-600'}`}>
@@ -505,9 +708,14 @@ const MaterialCard = ({ material, isSubscribed, onOpen, onSave, onUpgrade, isSav
         <Eye size={14} /> View
       </button>
       {isSubscribed && !isSaved && (
-        <button onClick={onSave} className="p-4 bg-indigo-50 text-indigo-600 rounded-2xl hover:bg-indigo-100 transition-all shadow-sm" title="Save In-App">
-          <Download size={18} />
-        </button>
+        <>
+          <button onClick={onSave} className="p-4 bg-indigo-50 text-indigo-600 rounded-2xl hover:bg-indigo-100 transition-all shadow-sm" title="Save In-App">
+            <Download size={18} />
+          </button>
+          <button onClick={onAddNote} className="p-4 bg-blue-50 text-blue-600 rounded-2xl hover:bg-blue-100 transition-all shadow-sm" title="Add Note">
+            <MessageSquare size={18} />
+          </button>
+        </>
       )}
       {isSaved && (
         <button onClick={onRemove} className="p-4 bg-red-50 text-red-500 rounded-2xl hover:bg-red-100 transition-all shadow-sm" title="Remove">

@@ -50,3 +50,43 @@ export interface PaymentRecord {
   status: 'pending' | 'success' | 'failed';
   createdAt: string;
 }
+
+export interface Note {
+  id: string;
+  userId: string;
+  materialId: string;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ScheduleItem {
+  id: string;
+  userId: string;
+  title: string;
+  subject: string;
+  startTime: string; // HH:mm format
+  endTime: string;   // HH:mm format
+  day: string;       // Monday, Tuesday, etc.
+  location: string;
+  color: string;
+  createdAt: string;
+}
+
+export interface StudySession {
+  id: string;
+  userId: string;
+  materialId: string;
+  duration: number; // in minutes
+  startedAt: string;
+  completedAt?: string;
+}
+
+export interface AnalyticsData {
+  userId: string;
+  totalStudyTime: number; // minutes
+  sessionsCount: number;
+  materialsViewed: number;
+  averageSessionDuration: number;
+  lastActiveDate: string;
+}
