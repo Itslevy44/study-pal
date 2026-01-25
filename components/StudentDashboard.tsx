@@ -21,7 +21,11 @@ import {
   DownloadCloud,
   LayoutGrid,
   FileText,
-  X
+  X,
+  Download,
+  Eye,
+  ExternalLink,
+  FileSearch
 } from 'lucide-react';
 
 interface StudentDashboardProps {
@@ -47,6 +51,8 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, onR
   const [taskType, setTaskType] = useState<'note' | 'timetable'>('note');
 
   const [showPayment, setShowPayment] = useState(false);
+  const [viewingMaterial, setViewingMaterial] = useState<StudyMaterial | null>(null);
+
   const isSubscribed = user.subscriptionExpiry && new Date(user.subscriptionExpiry) > new Date();
 
   useEffect(() => {
@@ -89,30 +95,31 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, onR
     }
   };
 
+  const handleDownload = (material: StudyMaterial) => {
+    const link = document.createElement('a');
+    link.href = material.fileUrl;
+    link.download = material.fileName || `${material.title}.${material.fileExtension}`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const verifyPayment = (e: React.MouseEvent | React.FormEvent) => {
     e.preventDefault();
-    console.log("Verify button clicked. Input:", mpesaMessage);
-    
     if (!mpesaMessage || mpesaMessage.trim().length < 15) {
       alert('Please paste a valid and complete M-Pesa confirmation message.');
       return;
     }
 
     const cleanMessage = mpesaMessage.trim();
-    
-    // Robust Regex for Kenyan M-Pesa messages
-    // Matches 10 character code e.g., RJE32F0ABC, SCL31D9XYZ
     const codeRegex = /\b([A-Z0-9]{10})\b/;
-    // Matches amount with KES, Ksh, or Ksh. prefix
     const amountRegex = /(?:KES|Ksh|Ksh\.)\s*([\d,]+\.?\d*)/i;
 
     const codeMatch = cleanMessage.match(codeRegex);
     const amountMatch = cleanMessage.match(amountRegex);
 
-    console.log("Matches found - Code:", codeMatch?.[1], "Amount:", amountMatch?.[1]);
-
     if (!codeMatch) {
-      alert('Verification Error: Could not find a valid 10-character M-Pesa transaction code. Please ensure you copied the full message.');
+      alert('Verification Error: Could not find a valid M-Pesa code.');
       return;
     }
 
@@ -121,24 +128,22 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, onR
     const amount = parseFloat(amountStr);
 
     if (amount < 50 && amount !== 0) {
-      alert(`The detected amount (KES ${amount}) is below the required KES 50. Please contact support if this is an error.`);
+      alert(`Detected amount: KES ${amount}. KES 50 is required.`);
       return;
     }
 
     if (api.isMpesaCodeUsed(code)) {
-      alert('This M-Pesa code has already been used to activate an account. Please use a fresh transaction.');
+      alert('This M-Pesa code has already been used.');
       return;
     }
 
-    // Success: Record payment and update subscription
     api.recordPayment(user.id, user.email, Math.max(amount, 50), "0748717099", code);
-    api.updateUserSubscription(user.id, 4); // 4 months for one semester
+    api.updateUserSubscription(user.id, 4);
     
     setShowPayment(false);
     setMpesaMessage('');
     if (onRefresh) onRefresh();
-    
-    alert(`Semester Activated Successfully! Transaction ${code} verified. Enjoy full access to Study Pal resources.`);
+    alert(`Semester Activated! Transaction ${code} verified.`);
   };
 
   const filteredMaterials = materials.filter(m => 
@@ -148,7 +153,6 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, onR
 
   return (
     <div className="flex flex-col h-screen bg-slate-50 overflow-hidden">
-      {/* Header - Sticky and Responsive */}
       <header className="bg-white border-b border-slate-200 px-4 sm:px-8 py-3 sm:py-4 flex items-center justify-between sticky top-0 z-40 shadow-sm">
         <div className="flex items-center gap-2 sm:gap-3">
           <Logo size="sm" />
@@ -173,7 +177,6 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, onR
       </header>
 
       <div className="flex flex-1 overflow-hidden relative">
-        {/* Navigation - Bottom bar on mobile, Sidebar on desktop */}
         <nav className="w-full md:w-64 bg-white md:border-r border-slate-200 flex md:flex-col fixed bottom-0 left-0 md:static z-40 h-16 md:h-full justify-around md:justify-start md:pt-8 shadow-[0_-4px_15px_rgba(0,0,0,0.05)] md:shadow-none">
           <NavButton active={activeTab === 'hub'} onClick={() => setActiveTab('hub')} icon={<LayoutGrid />} label="Hub" />
           <NavButton active={activeTab === 'tasks'} onClick={() => setActiveTab('tasks')} icon={<Calendar />} label="Space" />
@@ -184,7 +187,6 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, onR
           </button>
         </nav>
 
-        {/* Content Area */}
         <main className="flex-1 overflow-y-auto pb-24 md:pb-10 p-4 sm:p-6 lg:p-10 no-scrollbar">
           {activeTab === 'hub' && (
             <div className="max-w-6xl mx-auto animate-in fade-in slide-in-from-bottom-3 duration-300">
@@ -214,7 +216,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, onR
 
               <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                 {filteredMaterials.map(m => (
-                  <div key={m.id} className="bg-white rounded-2xl border border-slate-100 p-5 sm:p-6 flex flex-col hover:shadow-xl transition-all group">
+                  <div key={m.id} className="bg-white rounded-2xl border border-slate-100 p-5 sm:p-6 flex flex-col hover:shadow-xl transition-all group relative overflow-hidden">
                     <div className="flex justify-between items-start mb-4">
                       <div className={`p-3 rounded-lg ${m.type === 'note' ? 'bg-indigo-50 text-indigo-600' : 'bg-purple-50 text-purple-600'}`}>
                         {m.type === 'note' ? <BookOpen size={20} /> : <FileText size={20} />}
@@ -223,23 +225,31 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, onR
                     </div>
                     <h4 className="font-black text-slate-800 mb-1 line-clamp-2 leading-snug">{m.title}</h4>
                     <p className="text-[10px] font-bold text-slate-400 mb-6 uppercase tracking-wider">{m.school} • Year {m.year}</p>
-                    <button 
-                      onClick={() => !isSubscribed ? setShowPayment(true) : alert('Displaying document in protected viewer...')} 
-                      className={`w-full mt-auto py-3 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors ${isSubscribed ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-400 hover:bg-slate-100'}`}
-                    >
-                      {isSubscribed ? 'Open Resource' : 'Unlock Now'}
-                    </button>
+                    
+                    <div className="flex gap-2 mt-auto">
+                      <button 
+                        onClick={() => !isSubscribed ? setShowPayment(true) : setViewingMaterial(m)} 
+                        className={`flex-1 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest transition-colors flex items-center justify-center gap-2 ${isSubscribed ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-400 hover:bg-slate-100'}`}
+                      >
+                        <Eye size={14} /> {isSubscribed ? 'Open' : 'Unlock'}
+                      </button>
+                      {isSubscribed && (
+                        <button 
+                          onClick={() => handleDownload(m)}
+                          className="p-3 bg-indigo-50 text-indigo-600 rounded-xl hover:bg-indigo-100 transition-colors"
+                          title="Download Resource"
+                        >
+                          <Download size={16} />
+                        </button>
+                      )}
+                    </div>
                   </div>
                 ))}
-                {filteredMaterials.length === 0 && (
-                  <div className="col-span-full py-16 text-center text-slate-400 font-bold border-2 border-dashed border-slate-100 rounded-2xl bg-white/50">
-                    No resources match your search.
-                  </div>
-                )}
               </div>
             </div>
           )}
 
+          {/* ... Tasks, AI, Profile tabs remain similar ... */}
           {activeTab === 'tasks' && (
             <div className="max-w-3xl mx-auto animate-in fade-in slide-in-from-bottom-3 duration-300">
                <div className="flex justify-between items-end mb-8">
@@ -320,14 +330,13 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, onR
                       </button>
                   </div>
               </div>
-
               <div className="bg-indigo-700 p-6 sm:p-8 rounded-2xl text-white shadow-xl flex items-center justify-between gap-4">
                 <div>
                   <h4 className="text-lg font-black mb-0.5">Mobile App</h4>
                   <p className="text-[10px] opacity-70 font-bold uppercase tracking-wider">Install on Home Screen</p>
                 </div>
                 <button 
-                  onClick={() => alert('Add to Home Screen:\n1. Open your browser settings (⋮ or ⎙)\n2. Tap "Install App" or "Add to Home Screen"\n3. Study Pal is now available in your app list!')}
+                  onClick={() => alert('Add to Home Screen:\n1. Open your browser settings (⋮ or ⎙)\n2. Tap "Install App" or "Add to Home Screen"')}
                   className="bg-white/10 hover:bg-white/20 p-3 rounded-xl transition-all"
                 >
                   <DownloadCloud size={24} />
@@ -338,13 +347,76 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, onR
         </main>
       </div>
 
-      {/* Payment Modal - Full screen mobile, centered desktop */}
+      {/* Resource Viewer Modal */}
+      {viewingMaterial && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/90 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="bg-white w-full h-full md:w-[90vw] md:h-[90vh] md:rounded-[2rem] flex flex-col overflow-hidden shadow-2xl relative">
+            <header className="bg-white border-b border-slate-100 px-6 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-4 overflow-hidden">
+                <div className={`p-2.5 rounded-lg flex-shrink-0 ${viewingMaterial.type === 'note' ? 'bg-indigo-50 text-indigo-600' : 'bg-purple-50 text-purple-600'}`}>
+                   {viewingMaterial.type === 'note' ? <BookOpen size={20} /> : <FileText size={20} />}
+                </div>
+                <div className="overflow-hidden">
+                  <h3 className="font-black text-slate-800 text-lg truncate leading-tight">{viewingMaterial.title}</h3>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{viewingMaterial.fileName}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <button 
+                  onClick={() => handleDownload(viewingMaterial)} 
+                  className="hidden sm:flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white rounded-xl text-xs font-bold shadow-lg hover:bg-indigo-700 active:scale-95 transition-all"
+                >
+                  <Download size={16} /> Download
+                </button>
+                <button onClick={() => setViewingMaterial(null)} className="p-3 text-slate-400 hover:text-slate-800 transition-colors">
+                  <X size={24} />
+                </button>
+              </div>
+            </header>
+
+            <div className="flex-1 bg-slate-800 relative overflow-hidden flex items-center justify-center">
+              {/* Material rendering based on extension */}
+              {['pdf'].includes(viewingMaterial.fileExtension.toLowerCase()) ? (
+                <iframe src={viewingMaterial.fileUrl} className="w-full h-full border-none" title={viewingMaterial.title} />
+              ) : ['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(viewingMaterial.fileExtension.toLowerCase()) ? (
+                <div className="w-full h-full p-4 flex items-center justify-center overflow-auto no-scrollbar">
+                  <img src={viewingMaterial.fileUrl} alt={viewingMaterial.title} className="max-w-full max-h-full object-contain shadow-2xl rounded-lg" />
+                </div>
+              ) : (
+                <div className="text-white text-center p-10 max-w-sm">
+                   <div className="bg-slate-700/50 p-10 rounded-[2.5rem] border border-slate-600 mb-8">
+                      <FileSearch size={64} className="mx-auto text-indigo-400 mb-6" />
+                      <h4 className="text-xl font-bold mb-3">Viewer not available</h4>
+                      <p className="text-slate-400 text-sm leading-relaxed mb-8">This file format ({viewingMaterial.fileExtension}) cannot be previewed directly in the browser. Please download it to view on your device.</p>
+                      <button 
+                        onClick={() => handleDownload(viewingMaterial)} 
+                        className="w-full py-4 bg-indigo-600 text-white rounded-xl font-black text-sm flex items-center justify-center gap-3 shadow-xl active:scale-95"
+                      >
+                        <Download size={18} /> Download Resource
+                      </button>
+                   </div>
+                </div>
+              )}
+            </div>
+
+            <footer className="bg-white border-t border-slate-100 p-4 sm:hidden">
+               <button 
+                  onClick={() => handleDownload(viewingMaterial)} 
+                  className="w-full py-4 bg-indigo-600 text-white rounded-xl font-black text-sm flex items-center justify-center gap-2 shadow-lg"
+                >
+                  <Download size={18} /> Download to View
+                </button>
+            </footer>
+          </div>
+        </div>
+      )}
+
+      {/* Payment Modal */}
       {showPayment && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
           <div className="bg-white rounded-2xl p-6 sm:p-8 w-full max-w-md shadow-2xl relative animate-in zoom-in duration-200 max-h-[95vh] overflow-y-auto no-scrollbar">
             <button onClick={() => setShowPayment(false)} className="absolute top-4 right-4 text-slate-300 hover:text-slate-600 p-2"><X size={20} /></button>
             <h3 className="text-xl font-black text-slate-800 mb-6 text-center">Semester Activation</h3>
-            
             <div className="space-y-6">
               <div className="bg-indigo-50 border-2 border-indigo-100 p-5 rounded-xl text-center">
                 <div className="flex justify-center mb-2 text-indigo-600"><Smartphone size={28} /></div>
@@ -352,24 +424,17 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, onR
                 <p className="text-xl font-black text-slate-800 tracking-widest select-all">0748 717 099</p>
                 <p className="text-[9px] font-bold text-slate-400 mt-1 uppercase tracking-widest">LEVY KIRUI</p>
               </div>
-
               <form onSubmit={verifyPayment} className="space-y-4">
                 <label className="label mb-1 px-1">M-Pesa Confirmation Message</label>
                 <textarea 
                   required
-                  placeholder="Paste the message from M-Pesa here..." 
+                  placeholder="Paste message here..." 
                   className="w-full px-4 py-3 bg-slate-50 rounded-xl border-2 border-slate-100 outline-none focus:border-indigo-500 font-medium text-xs text-slate-600 h-28 resize-none shadow-inner"
                   value={mpesaMessage}
                   onChange={e => setMpesaMessage(e.target.value)}
                 />
-                <button 
-                  type="submit"
-                  className="w-full py-4 bg-indigo-600 text-white font-black text-sm rounded-xl shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 hover:bg-indigo-700"
-                >
-                  <ClipboardCheck size={20} /> VERIFY & UNLOCK
-                </button>
+                <button type="submit" className="w-full py-4 bg-indigo-600 text-white font-black text-sm rounded-xl shadow-lg active:scale-95 transition-all">VERIFY & UNLOCK</button>
               </form>
-              <p className="text-[10px] text-center text-slate-400 font-medium">Automatic verification usually takes 1-2 seconds after pasting.</p>
             </div>
           </div>
         </div>
