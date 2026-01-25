@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { User, StudyMaterial, TaskItem } from '../types';
+import { User, StudyMaterial, TaskItem, University } from '../types';
 import { api } from '../services/api';
 import { getStudyHelp } from '../services/geminiService';
 import Logo from './Logo';
@@ -27,7 +27,10 @@ import {
   FileSearch,
   CheckCircle2,
   Settings,
-  Shield
+  Shield,
+  Edit3,
+  Filter,
+  ChevronRight
 } from 'lucide-react';
 
 interface StudentDashboardProps {
@@ -42,7 +45,9 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, onR
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [activeTab, setActiveTab] = useState<'hub' | 'tasks' | 'ai' | 'profile' | 'saved'>('hub');
   const [search, setSearch] = useState('');
+  const [filterType, setFilterType] = useState<'all' | 'note' | 'past-paper'>('all');
   const [mpesaMessage, setMpesaMessage] = useState('');
+  const [universities, setUniversities] = useState<University[]>([]);
   
   const [query, setQuery] = useState('');
   const [aiResponse, setAiResponse] = useState('');
@@ -56,19 +61,23 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, onR
   const [showPayment, setShowPayment] = useState(false);
   const [viewingMaterial, setViewingMaterial] = useState<StudyMaterial | null>(null);
 
-  // FIX: Define isSubscribed here so it's available in the component scope
+  // Profile Edit States
+  const [showEditProfile, setShowEditProfile] = useState(false);
+  const [editEmail, setEditEmail] = useState(user.email);
+  const [editSchool, setEditSchool] = useState(user.school);
+  const [editYear, setEditYear] = useState(user.year);
+
   const isSubscribed = user.subscriptionExpiry ? new Date(user.subscriptionExpiry) > new Date() : false;
 
-  // Robust history management for the viewer to prevent freezes
   const closeViewer = useCallback(() => {
     setViewingMaterial(null);
   }, []);
 
   useEffect(() => {
     refreshData();
+    setUniversities(api.getUniversities());
     
     const handlePopState = (event: PopStateEvent) => {
-      // If we're moving back and the viewer was open, close it
       closeViewer();
     };
 
@@ -111,13 +120,11 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, onR
 
   const handleOpenMaterial = (m: StudyMaterial) => {
     setViewingMaterial(m);
-    // Push state so back button closes the modal instead of leaving the app
     window.history.pushState({ viewer: true }, '');
   };
 
   const handleCloseViewerBtn = () => {
     if (viewingMaterial) {
-      // Trigger popstate naturally
       window.history.back();
     }
   };
@@ -142,10 +149,24 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, onR
     alert(`Verified! Premium access granted.`);
   };
 
-  const filteredMaterials = (materialsList: StudyMaterial[]) => materialsList.filter(m => 
-    m.title.toLowerCase().includes(search.toLowerCase()) || 
-    m.school.toLowerCase().includes(search.toLowerCase())
-  );
+  const handleUpdateProfile = (e: React.FormEvent) => {
+    e.preventDefault();
+    api.updateProfile(user.id, {
+      email: editEmail,
+      school: editSchool,
+      year: editYear
+    });
+    setShowEditProfile(false);
+    if (onRefresh) onRefresh();
+    alert('Profile updated successfully!');
+  };
+
+  const filteredMaterials = (materialsList: StudyMaterial[]) => materialsList.filter(m => {
+    const matchesSearch = m.title.toLowerCase().includes(search.toLowerCase()) || 
+                         m.school.toLowerCase().includes(search.toLowerCase());
+    const matchesType = filterType === 'all' || m.type === filterType;
+    return matchesSearch && matchesType;
+  });
 
   return (
     <div className="flex flex-col h-screen bg-slate-50 overflow-hidden">
@@ -160,7 +181,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, onR
               <Crown className="w-3 h-3" /> Upgrade
             </button>
           )}
-          <div className="flex items-center gap-2 sm:pl-4 sm:border-l border-slate-100">
+          <div className="flex items-center gap-2 sm:pl-4 sm:border-l border-slate-100 cursor-pointer" onClick={() => setActiveTab('profile')}>
             <div className="text-right hidden sm:block">
               <p className="text-sm font-black text-slate-800 truncate max-w-[120px]">{user.email.split('@')[0]}</p>
               <p className="text-[10px] text-indigo-500 uppercase tracking-widest font-black">{user.year}</p>
@@ -189,9 +210,18 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, onR
             <div className="max-w-6xl mx-auto animate-in fade-in slide-in-from-bottom-3">
               <div className="mb-8">
                 <h2 className="text-2xl font-black text-slate-800 tracking-tight">University Library</h2>
-                <div className="mt-5 relative max-w-lg">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 w-5 h-5" />
-                  <input type="text" placeholder="Search resources..." className="w-full pl-12 pr-4 py-3 bg-white border-2 border-slate-100 rounded-xl font-medium shadow-sm focus:border-indigo-500" value={search} onChange={e => setSearch(e.target.value)} />
+                <div className="mt-5 flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+                  <div className="relative flex-1 w-full max-w-lg">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 w-5 h-5" />
+                    <input type="text" placeholder="Search resources..." className="w-full pl-12 pr-4 py-3 bg-white border-2 border-slate-100 rounded-xl font-medium shadow-sm focus:border-indigo-500" value={search} onChange={e => setSearch(e.target.value)} />
+                  </div>
+                  
+                  {/* Filter Pills */}
+                  <div className="flex gap-2 bg-white p-1 rounded-2xl border border-slate-100 shadow-sm w-full sm:w-auto overflow-x-auto no-scrollbar">
+                    <FilterButton active={filterType === 'all'} onClick={() => setFilterType('all')} label="All" />
+                    <FilterButton active={filterType === 'note'} onClick={() => setFilterType('note')} label="Notes" icon={<BookOpen size={14} />} />
+                    <FilterButton active={filterType === 'past-paper'} onClick={() => setFilterType('past-paper')} label="Papers" icon={<FileText size={14} />} />
+                  </div>
                 </div>
               </div>
               
@@ -206,6 +236,12 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, onR
                     onUpgrade={() => setShowPayment(true)}
                   />
                 ))}
+                {filteredMaterials(materials).length === 0 && (
+                   <div className="col-span-full py-20 text-center bg-white rounded-3xl border-2 border-dashed border-slate-100 flex flex-col items-center">
+                      <FileSearch size={48} className="text-slate-200 mb-4" />
+                      <p className="font-bold text-slate-400">No matching resources found.</p>
+                   </div>
+                )}
               </div>
             </div>
           )}
@@ -279,33 +315,75 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, onR
             <div className="max-w-xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-3">
               <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100">
                   <div className="flex items-center gap-6 mb-10">
-                      <div className="w-20 h-20 bg-indigo-50 rounded-[2rem] flex items-center justify-center text-indigo-600"><UserCircle size={48} /></div>
-                      <div>
+                      <div className="w-20 h-20 bg-indigo-50 rounded-[2rem] flex items-center justify-center text-indigo-600 shadow-inner"><UserCircle size={48} /></div>
+                      <div className="flex-1 overflow-hidden">
                           <h3 className="text-xl font-black text-slate-800 truncate">{user.email}</h3>
                           <p className="text-slate-400 font-bold mt-1 text-xs">{user.school} • Year {user.year}</p>
                       </div>
+                      <button onClick={() => setShowEditProfile(true)} className="p-3 bg-slate-50 text-slate-400 hover:text-indigo-600 rounded-xl transition-all">
+                        <Edit3 size={20} />
+                      </button>
                   </div>
                   <div className="space-y-3">
-                      <button className="w-full py-4 px-6 bg-slate-50 hover:bg-slate-100 rounded-xl flex items-center justify-between text-sm font-bold text-slate-700">
-                        <div className="flex items-center gap-3"><Settings size={18} /> Account Settings</div>
+                      <button onClick={() => setShowEditProfile(true)} className="w-full py-4 px-6 bg-slate-50 hover:bg-slate-100 rounded-xl flex items-center justify-between text-sm font-bold text-slate-700">
+                        <div className="flex items-center gap-3"><Settings size={18} /> Update Profile Info</div>
+                        <ChevronRight size={18} className="text-slate-300" />
                       </button>
                       <button className="w-full py-4 px-6 bg-slate-50 hover:bg-slate-100 rounded-xl flex items-center justify-between text-sm font-bold text-slate-700">
-                        <div className="flex items-center gap-3"><Shield size={18} /> Security & Privacy</div>
+                        <div className="flex items-center gap-3"><Shield size={18} /> Privacy Settings</div>
+                        <ChevronRight size={18} className="text-slate-300" />
                       </button>
-                      <button onClick={onLogout} className="w-full mt-4 py-4 bg-red-50 text-red-600 font-black text-xs uppercase tracking-widest rounded-xl hover:bg-red-100">Sign Out</button>
+                      <button onClick={onLogout} className="w-full mt-4 py-4 bg-red-50 text-red-600 font-black text-xs uppercase tracking-widest rounded-xl hover:bg-red-100 transition-all">Sign Out</button>
                   </div>
               </div>
+
+              {isSubscribed && (
+                <div className="bg-indigo-600 p-8 rounded-[2.5rem] text-white shadow-xl relative overflow-hidden">
+                  <div className="relative z-10">
+                    <h4 className="text-xl font-black mb-1">Premium Status</h4>
+                    <p className="text-indigo-200 text-xs font-bold uppercase tracking-widest">Valid until {new Date(user.subscriptionExpiry!).toLocaleDateString()}</p>
+                  </div>
+                  <Crown className="absolute right-[-20px] bottom-[-20px] w-48 h-48 opacity-10 rotate-12" />
+                </div>
+              )}
             </div>
           )}
         </main>
       </div>
 
+      {/* Profile Edit Modal */}
+      {showEditProfile && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-[2.5rem] p-8 w-full max-w-md shadow-2xl relative animate-in zoom-in duration-200">
+            <button onClick={() => setShowEditProfile(false)} className="absolute top-6 right-6 text-slate-300 hover:text-slate-600 p-2"><X size={20} /></button>
+            <h3 className="text-xl font-black text-slate-800 mb-6">Edit Profile</h3>
+            <form onSubmit={handleUpdateProfile} className="space-y-4">
+              <div>
+                <label className="label">Email Address</label>
+                <input required type="email" className="input" value={editEmail} onChange={e => setEditEmail(e.target.value)} />
+              </div>
+              <div>
+                <label className="label">University / School</label>
+                <select required className="input appearance-none" value={editSchool} onChange={e => setEditSchool(e.target.value)}>
+                  {universities.map(u => <option key={u.id} value={u.name}>{u.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="label">Year of Study</label>
+                <select required className="input appearance-none" value={editYear} onChange={e => setEditYear(e.target.value)}>
+                  <option>First Year</option><option>Second Year</option><option>Third Year</option><option>Fourth Year</option>
+                </select>
+              </div>
+              <button type="submit" className="w-full py-4 bg-indigo-600 text-white font-black text-sm rounded-2xl shadow-lg active:scale-95 transition-all mt-4">SAVE CHANGES</button>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Resource Viewer Modal - Intensive Anti-Screenshot protection */}
       {viewingMaterial && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black animate-in fade-in duration-300 overflow-hidden select-none">
           <div className="w-full h-full flex flex-col relative">
-            
-            {/* Dynamic Watermark Layer - Moves slightly or repeats many times */}
             <div className="absolute inset-0 pointer-events-none z-50 opacity-[0.05] select-none flex flex-wrap gap-12 items-center justify-center rotate-12 overflow-hidden">
               {Array(100).fill(0).map((_, i) => (
                 <div key={i} className="flex flex-col items-center">
@@ -323,10 +401,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, onR
                   <p className="text-[10px] text-white/40 font-bold uppercase tracking-widest">Protected Viewer • No Capture Allowed</p>
                 </div>
               </div>
-              <button 
-                onClick={handleCloseViewerBtn} 
-                className="p-3 text-white/40 hover:text-white transition-colors hover:bg-white/5 rounded-full"
-              >
+              <button onClick={handleCloseViewerBtn} className="p-3 text-white/40 hover:text-white transition-colors hover:bg-white/5 rounded-full">
                 <X size={24} />
               </button>
             </header>
@@ -336,13 +411,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, onR
                 <iframe src={viewingMaterial.fileUrl} className="w-full h-full border-none" title={viewingMaterial.title} />
               ) : (
                 <div className="w-full h-full flex items-center justify-center p-4">
-                  <img 
-                    src={viewingMaterial.fileUrl} 
-                    alt={viewingMaterial.title} 
-                    className="max-w-full max-h-full object-contain shadow-2xl rounded-sm" 
-                    onContextMenu={e => e.preventDefault()}
-                    onDragStart={e => e.preventDefault()}
-                  />
+                  <img src={viewingMaterial.fileUrl} alt={viewingMaterial.title} className="max-w-full max-h-full object-contain shadow-2xl rounded-sm" onContextMenu={e => e.preventDefault()} onDragStart={e => e.preventDefault()} />
                 </div>
               )}
             </div>
@@ -404,6 +473,15 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, onR
   );
 };
 
+const FilterButton = ({ active, onClick, label, icon }: any) => (
+  <button 
+    onClick={onClick} 
+    className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all ${active ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`}
+  >
+    {icon} {label}
+  </button>
+);
+
 const MaterialCard = ({ material, isSubscribed, onOpen, onSave, onUpgrade, isSaved, onRemove }: any) => (
   <div className="bg-white rounded-3xl border border-slate-100 p-6 flex flex-col hover:shadow-2xl transition-all relative overflow-hidden group border-b-4 border-b-slate-200">
     <div className="flex justify-between items-start mb-4">
@@ -448,7 +526,5 @@ const NavButton = ({ active, icon, label, onClick }: any) => (
     {active && <div className="hidden md:block absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-8 bg-indigo-600 rounded-r-full animate-in slide-in-from-left duration-300" />}
   </button>
 );
-
-const isSubscribedCheck = (user: User) => user.subscriptionExpiry && new Date(user.subscriptionExpiry) > new Date();
 
 export default StudentDashboard;
