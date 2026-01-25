@@ -8,7 +8,8 @@ const STORAGE_KEYS = {
   TASKS: 'studypal_tasks',
   PAYMENTS: 'studypal_payments',
   CURRENT_USER: 'studypal_session',
-  UNIVERSITIES: 'studypal_universities'
+  UNIVERSITIES: 'studypal_universities',
+  OFFLINE_STORAGE: 'studypal_offline_v1'
 };
 
 const getFromStorage = <T,>(key: string, defaultValue: T): T => {
@@ -42,7 +43,6 @@ export const api = {
         return admin;
     }
     
-    // Check registered users (including new admins)
     return users.find(u => u.email === email && u.password === pass) || null;
   },
 
@@ -76,6 +76,27 @@ export const api = {
   deleteMaterial: (id: string) => {
     const items = getFromStorage<StudyMaterial[]>(STORAGE_KEYS.MATERIALS, []);
     saveToStorage(STORAGE_KEYS.MATERIALS, items.filter(i => i.id !== id));
+  },
+
+  // In-App (Offline) Storage
+  saveOffline: (userId: string, material: StudyMaterial) => {
+    const offline = getFromStorage<Record<string, StudyMaterial[]>>(STORAGE_KEYS.OFFLINE_STORAGE, {});
+    if (!offline[userId]) offline[userId] = [];
+    if (!offline[userId].some(m => m.id === material.id)) {
+      offline[userId].push(material);
+      saveToStorage(STORAGE_KEYS.OFFLINE_STORAGE, offline);
+    }
+  },
+  getOffline: (userId: string): StudyMaterial[] => {
+    const offline = getFromStorage<Record<string, StudyMaterial[]>>(STORAGE_KEYS.OFFLINE_STORAGE, {});
+    return offline[userId] || [];
+  },
+  removeOffline: (userId: string, materialId: string) => {
+    const offline = getFromStorage<Record<string, StudyMaterial[]>>(STORAGE_KEYS.OFFLINE_STORAGE, {});
+    if (offline[userId]) {
+      offline[userId] = offline[userId].filter(m => m.id !== materialId);
+      saveToStorage(STORAGE_KEYS.OFFLINE_STORAGE, offline);
+    }
   },
 
   // Tasks
@@ -118,7 +139,7 @@ export const api = {
     return newPayment;
   },
 
-  // Users Management (Admin)
+  // Users Management
   getUsers: (): User[] => getFromStorage(STORAGE_KEYS.USERS, []),
   updateUserSubscription: (userId: string, months: number) => {
     const users = getFromStorage<User[]>(STORAGE_KEYS.USERS, []);
@@ -154,7 +175,6 @@ export const api = {
     return newAdmin;
   },
 
-  // Profile
   updateProfile: (userId: string, data: Partial<User>) => {
     const users = getFromStorage<User[]>(STORAGE_KEYS.USERS, []);
     const updated = users.map(u => u.id === userId ? { ...u, ...data } : u);

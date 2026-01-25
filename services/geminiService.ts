@@ -4,7 +4,8 @@ import { GoogleGenAI } from "@google/genai";
 // Study assistance is a complex text task requiring gemini-3-pro-preview.
 export const getStudyHelp = async (question: string, context?: string) => {
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || "" });
+    // Initializing AI client with the required parameter format and environment variable.
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({
       model: 'gemini-3-pro-preview',
       contents: `You are StudyPal Assistant. Help the student with this question based on their materials if provided. 
