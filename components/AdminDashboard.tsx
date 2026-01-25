@@ -3,6 +3,7 @@ import React from 'react';
 import { User, StudyMaterial, University } from '../types';
 import { materialsApi, usersApi, universitiesApi } from '../services/supabaseApi';
 import * as storageService from '../services/storageService';
+import { supabase } from '../services/supabaseClient';
 import Logo from './Logo';
 import { 
   Users, 
@@ -238,6 +239,23 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
     }
   };
 
+  const handleDeleteUniversity = async (uniId: string, uniName: string) => {
+    if (confirm(`Delete "${uniName}"? Students won't be able to select this institution during registration.`)) {
+      try {
+        const { error } = await supabase
+          .from('universities')
+          .delete()
+          .eq('id', uniId);
+        
+        if (error) throw error;
+        refreshData();
+      } catch (error) {
+        console.error('Delete error:', error);
+        alert('Failed to delete university');
+      }
+    }
+  };
+
   const getFormatIcon = (ext: string) => {
     switch(ext?.toLowerCase()) {
       case 'pdf': return <FileText className="text-red-500" size={20} />;
@@ -421,13 +439,31 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {universities.map(uni => (
-                  <div key={uni.id} className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4">
-                    <School size={24} className="text-indigo-600 mb-2" />
-                    <h3 className="font-semibold text-gray-800 dark:text-white">{uni.name}</h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">{uni.location}</p>
+                  <div key={uni.id} className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 flex flex-col">
+                    <div className="flex-1">
+                      <div className="flex items-start gap-2 mb-2">
+                        <School size={24} className="text-indigo-600 flex-shrink-0" />
+                        <h3 className="font-semibold text-gray-800 dark:text-white">{uni.name}</h3>
+                      </div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">{uni.location || 'No location specified'}</p>
+                    </div>
+                    <button
+                      onClick={() => handleDeleteUniversity(uni.id, uni.name)}
+                      className="mt-4 w-full px-3 py-2 text-sm bg-red-500 text-white rounded hover:bg-red-600 flex items-center justify-center gap-1 transition"
+                    >
+                      <Trash2 size={14} />
+                      Delete
+                    </button>
                   </div>
                 ))}
               </div>
+
+              {universities.length === 0 && (
+                <div className="text-center py-12">
+                  <School size={48} className="text-gray-300 mx-auto mb-3" />
+                  <p className="text-gray-500 dark:text-gray-400">No universities added yet. Click "Add University" to get started.</p>
+                </div>
+              )}
             </div>
           )}
         </div>
