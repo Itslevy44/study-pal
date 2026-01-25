@@ -21,7 +21,9 @@ export interface StudyMaterial {
   id: string;
   title: string;
   type: 'note' | 'past-paper';
-  fileUrl: string;
+  fileUrl: string; // This will store base64 data for the demo
+  fileName: string;
+  fileExtension: string;
   school: string;
   year: string;
   description: string;

@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { User, StudyMaterial, University, PaymentRecord } from '../types';
 import { api } from '../services/api';
 import Logo from './Logo';
@@ -18,7 +18,12 @@ import {
   CreditCard,
   Hash,
   Menu,
-  ChevronRight
+  ChevronRight,
+  Upload,
+  FileCode,
+  FileImage,
+  FileArchive,
+  FileBadge
 } from 'lucide-react';
 
 interface AdminDashboardProps {
@@ -38,10 +43,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
   const [showUniModal, setShowUniModal] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   
+  // New Material State
   const [newTitle, setNewTitle] = useState('');
   const [newType, setNewType] = useState<'note' | 'past-paper'>('note');
   const [newSchool, setNewSchool] = useState('');
   const [newYear, setNewYear] = useState('First Year');
+  const [selectedFile, setSelectedFile] = useState<{data: string, name: string, ext: string} | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [adminEmail, setAdminEmail] = useState('');
   const [adminPass, setAdminPass] = useState('');
@@ -58,18 +66,43 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
     setPayments(api.getPayments());
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const ext = file.name.split('.').pop()?.toLowerCase() || 'txt';
+        setSelectedFile({
+          data: reader.result as string,
+          name: file.name,
+          ext: ext
+        });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleAddMaterial = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!selectedFile) {
+      alert("Please select a file to upload.");
+      return;
+    }
+
     api.addMaterial({
       title: newTitle,
       type: newType,
       school: newSchool,
       year: newYear,
       description: `Academic resource for ${newSchool} students`,
-      fileUrl: '#',
+      fileUrl: selectedFile.data,
+      fileName: selectedFile.name,
+      fileExtension: selectedFile.ext,
       uploadedBy: user.email
     });
+
     setNewTitle('');
+    setSelectedFile(null);
     setShowAddModal(false);
     refreshData();
   };
@@ -116,6 +149,21 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
     if (confirm('Promote this user to Admin?')) {
         api.promoteToAdmin(userId);
         refreshData();
+    }
+  };
+
+  const getFormatIcon = (ext: string) => {
+    switch(ext) {
+      case 'pdf': return <FileText className="text-red-500" />;
+      case 'doc':
+      case 'docx': return <FileText className="text-blue-500" />;
+      case 'jpg':
+      case 'png':
+      case 'jpeg': return <FileImage className="text-emerald-500" />;
+      case 'zip':
+      case 'rar': return <FileArchive className="text-amber-600" />;
+      case 'txt': return <FileText className="text-slate-500" />;
+      default: return <FileCode className="text-indigo-500" />;
     }
   };
 
@@ -175,7 +223,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
           
           <div className="flex gap-2 w-full md:w-auto">
             {activeTab === 'users' && <button onClick={() => setShowAdminModal(true)} className="btn-primary flex-1 md:flex-none"><UserPlus size={18} /> Add Admin</button>}
-            {activeTab === 'materials' && <button onClick={() => setShowAddModal(true)} className="btn-primary flex-1 md:flex-none"><PlusCircle size={18} /> Upload</button>}
+            {activeTab === 'materials' && <button onClick={() => setShowAddModal(true)} className="btn-primary flex-1 md:flex-none"><Upload size={18} /> Upload Resource</button>}
             {activeTab === 'universities' && <button onClick={() => setShowUniModal(true)} className="btn-primary flex-1 md:flex-none"><PlusCircle size={18} /> New Uni</button>}
           </div>
         </header>
@@ -186,16 +234,19 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
               <div key={m.id} className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm hover:shadow-lg transition-all flex flex-col relative group">
                 <button onClick={() => handleDeleteMaterial(m.id)} className="absolute top-4 right-4 p-2 text-slate-300 hover:text-red-500 transition-colors"><Trash2 size={16} /></button>
                 <div className="flex items-start gap-4 mb-4">
-                  <div className={`p-3 rounded-xl ${m.type === 'note' ? 'bg-indigo-50 text-indigo-600' : 'bg-purple-50 text-purple-600'}`}>
-                    {m.type === 'note' ? <BookOpen size={24} /> : <FileText size={24} />}
+                  <div className={`p-3 rounded-xl ${m.type === 'note' ? 'bg-indigo-50' : 'bg-purple-50'}`}>
+                    {getFormatIcon(m.fileExtension)}
                   </div>
                   <div className="flex-1 overflow-hidden">
                     <h3 className="font-bold text-slate-800 line-clamp-1 pr-6">{m.title}</h3>
                     <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{m.school}</p>
                   </div>
                 </div>
-                <div className="mt-auto flex items-center justify-between text-[10px] font-black uppercase text-slate-300">
-                  <span>Year {m.year}</span>
+                <div className="mt-auto pt-4 border-t border-slate-50 flex items-center justify-between text-[10px] font-black uppercase text-slate-400">
+                  <div className="flex items-center gap-2">
+                    <span className="bg-slate-100 px-2 py-0.5 rounded text-[8px]">{m.fileExtension}</span>
+                    <span>Year {m.year}</span>
+                  </div>
                   <span>{new Date(m.createdAt).toLocaleDateString()}</span>
                 </div>
               </div>
@@ -204,6 +255,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
           </div>
         )}
 
+        {/* ... Universities, Users, Payments tables remain the same ... */}
         {activeTab === 'universities' && (
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
                 {universities.map(u => (
@@ -290,13 +342,70 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
         {showAddModal && (
           <Modal title="Upload Resource" onClose={() => setShowAddModal(false)}>
             <form onSubmit={handleAddMaterial} className="space-y-4">
-                <div><label className="label">Resource Title</label><input required className="input" value={newTitle} onChange={e => setNewTitle(e.target.value)} placeholder="e.g. Unit 1 Introduction" /></div>
-                <div className="grid grid-cols-2 gap-4">
-                    <div><label className="label">Type</label><select className="input" value={newType} onChange={e => setNewType(e.target.value as any)}><option value="note">Notes</option><option value="past-paper">Past Paper</option></select></div>
-                    <div><label className="label">Year</label><select className="input" value={newYear} onChange={e => setNewYear(e.target.value)}><option>First Year</option><option>Second Year</option><option>Third Year</option><option>Fourth Year</option></select></div>
+                <div>
+                  <label className="label">Resource Title</label>
+                  <input required className="input" value={newTitle} onChange={e => setNewTitle(e.target.value)} placeholder="e.g. Unit 1 Introduction" />
                 </div>
-                <div><label className="label">University</label><select required className="input" value={newSchool} onChange={e => setNewSchool(e.target.value)}><option value="">Select University...</option>{universities.map(u => <option key={u.id} value={u.name}>{u.name}</option>)}</select></div>
-                <button type="submit" className="w-full btn-submit">Publish Resource</button>
+                
+                <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="label">Type</label>
+                      <select className="input" value={newType} onChange={e => setNewType(e.target.value as any)}>
+                        <option value="note">Notes</option>
+                        <option value="past-paper">Past Paper</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="label">Year</label>
+                      <select className="input" value={newYear} onChange={e => setNewYear(e.target.value)}>
+                        <option>First Year</option>
+                        <option>Second Year</option>
+                        <option>Third Year</option>
+                        <option>Fourth Year</option>
+                      </select>
+                    </div>
+                </div>
+
+                <div>
+                  <label className="label">University</label>
+                  <select required className="input" value={newSchool} onChange={e => setNewSchool(e.target.value)}>
+                    <option value="">Select University...</option>
+                    {universities.map(u => <option key={u.id} value={u.name}>{u.name}</option>)}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="label">File (PDF, DOCX, Images, etc.)</label>
+                  <div 
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-full border-2 border-dashed border-slate-200 rounded-xl p-6 flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-indigo-400 transition-all bg-slate-50"
+                  >
+                    <input 
+                      type="file" 
+                      ref={fileInputRef} 
+                      className="hidden" 
+                      onChange={handleFileChange}
+                      accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.zip,.rar,.txt"
+                    />
+                    {selectedFile ? (
+                      <div className="flex flex-col items-center text-center">
+                        <CheckCircle className="text-green-500 w-8 h-8" />
+                        <span className="text-xs font-bold text-slate-700 mt-2 truncate max-w-[200px]">{selectedFile.name}</span>
+                        <span className="text-[10px] text-slate-400 uppercase font-black">{selectedFile.ext}</span>
+                      </div>
+                    ) : (
+                      <>
+                        <Upload className="text-slate-300 w-8 h-8" />
+                        <span className="text-xs font-bold text-slate-500">Click to browse files</span>
+                        <span className="text-[10px] text-slate-300 font-medium">PDF, Word, Images up to 10MB</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                <button type="submit" className="w-full btn-submit flex items-center justify-center gap-2">
+                  <Upload size={18} /> Publish Resource
+                </button>
             </form>
           </Modal>
         )}
