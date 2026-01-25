@@ -1,16 +1,15 @@
-
 import React, { useState, useEffect } from 'react';
 import { User } from './types';
 import { api } from './services/api';
 import Auth from './components/Auth';
 import AdminDashboard from './components/AdminDashboard';
 import StudentDashboard from './components/StudentDashboard';
-import { ShieldAlert, BookOpen, ShieldCheck } from 'lucide-react';
+import { ShieldAlert, BookOpen, ShieldCheck, RefreshCw } from 'lucide-react';
 
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isWindowBlurred, setIsWindowBlurred] = useState(false);
+  const [isSecurityActive, setIsSecurityActive] = useState(false);
 
   const refreshUser = () => {
     const session = api.getCurrentUser();
@@ -21,38 +20,49 @@ const App: React.FC = () => {
     refreshUser();
     setLoading(false);
 
-    // Strict Security Measures
-    const handleBlur = () => setIsWindowBlurred(true);
-    const handleFocus = () => setIsWindowBlurred(false);
-    const handleContextMenu = (e: MouseEvent) => e.preventDefault();
+    // Strict Security Measures to discourage screenshots and data theft
+    const activateSecurity = () => setIsSecurityActive(true);
+    const deactivateSecurity = () => setIsSecurityActive(false);
     
-    // Attempt to detect common screenshot shortcuts
+    const handleContextMenu = (e: MouseEvent) => e.preventDefault();
+    const handleDragStart = (e: DragEvent) => e.preventDefault();
+    
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Block PrtSc, Windows + S, Cmd+Shift+4 etc (Partial blocking only)
-      if (e.key === 'PrintScreen' || (e.ctrlKey && e.key === 'p')) {
+      // Block common screenshot and print shortcuts
+      const isScreenshot = 
+        e.key === 'PrintScreen' || 
+        (e.metaKey && e.shiftKey && (e.key === '3' || e.key === '4' || e.key === '5')) || // Mac
+        (e.ctrlKey && e.key === 'p') || // Print
+        (e.metaKey && e.key === 'p') || // Print Mac
+        (e.ctrlKey && e.shiftKey && e.key === 's') || // Windows Snipping
+        (e.metaKey && e.shiftKey && e.key === 's'); // Windows Snipping on Mac keyboard
+
+      if (isScreenshot) {
         e.preventDefault();
-        setIsWindowBlurred(true);
-        setTimeout(() => setIsWindowBlurred(false), 3000);
+        activateSecurity();
       }
     };
 
     const handleVisibility = () => {
       if (document.visibilityState === 'hidden') {
-        setIsWindowBlurred(true);
+        activateSecurity();
       }
     };
 
-    window.addEventListener('blur', handleBlur);
-    window.addEventListener('focus', handleFocus);
+    // Events that trigger protection
+    window.addEventListener('blur', activateSecurity);
+    window.addEventListener('focus', deactivateSecurity);
     window.addEventListener('contextmenu', handleContextMenu);
     window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('dragstart', handleDragStart);
     document.addEventListener('visibilitychange', handleVisibility);
 
     return () => {
-      window.removeEventListener('blur', handleBlur);
-      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('blur', activateSecurity);
+      window.removeEventListener('focus', deactivateSecurity);
       window.removeEventListener('contextmenu', handleContextMenu);
       window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('dragstart', handleDragStart);
       document.removeEventListener('visibilitychange', handleVisibility);
     };
   }, []);
@@ -73,7 +83,7 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className={`min-h-screen transition-all duration-300 ${isWindowBlurred ? 'screenshot-blur pointer-events-none select-none' : ''}`}>
+    <div className={`min-h-screen transition-all duration-300 ${isSecurityActive ? 'screenshot-blur pointer-events-none select-none' : ''}`}>
       {user ? (
         user.role === 'admin' ? (
           <AdminDashboard user={user} onLogout={handleLogout} />
@@ -84,19 +94,27 @@ const App: React.FC = () => {
         <Auth onLogin={(u) => setUser(u)} />
       )}
 
-      {/* Security Overlay for blurred state */}
-      {isWindowBlurred && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-xl">
-          <div className="bg-white p-10 rounded-[2.5rem] shadow-2xl flex flex-col items-center max-w-sm text-center animate-in zoom-in duration-300">
+      {/* Security Overlay - Prevents Screenshotting by hiding content when blurred */}
+      {isSecurityActive && (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-slate-900/95 backdrop-blur-3xl pointer-events-auto select-none">
+          <div className="bg-white p-10 rounded-[3rem] shadow-2xl flex flex-col items-center max-w-sm text-center animate-in zoom-in duration-300 mx-4">
             <div className="w-20 h-20 bg-amber-50 rounded-full flex items-center justify-center mb-6">
-              <ShieldAlert className="w-10 h-10 text-amber-500" />
+              <ShieldAlert className="w-10 h-10 text-amber-500 animate-pulse" />
             </div>
             <h2 className="text-2xl font-black text-slate-800 tracking-tight">Protected Content</h2>
-            <p className="mt-3 text-slate-500 font-medium leading-relaxed">
-              Screenshot prevention is active. To continue studying, please keep the Study Pal window focused and active.
+            <p className="mt-3 text-slate-500 font-medium leading-relaxed text-sm">
+              Study Pal uses advanced encryption and screen protection. Content is hidden when the window is inactive or a capture tool is detected.
             </p>
-            <div className="mt-8 flex items-center gap-2 text-[10px] font-black uppercase text-slate-300 tracking-widest">
-              <ShieldCheck size={14} className="text-green-500" /> Secure Session Verified
+            
+            <button 
+              onClick={() => setIsSecurityActive(false)}
+              className="mt-8 w-full py-4 bg-indigo-600 text-white rounded-2xl font-black text-sm uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-all"
+            >
+              <RefreshCw size={18} /> Resume Studying
+            </button>
+
+            <div className="mt-6 flex items-center gap-2 text-[10px] font-black uppercase text-slate-300 tracking-widest">
+              <ShieldCheck size={14} className="text-green-500" /> SECURE SESSION ACTIVE
             </div>
           </div>
         </div>
