@@ -35,7 +35,18 @@ export const api = {
     if (authError) throw new Error(authError.message);
     if (!authData.user?.id) throw new Error('Auth signup failed');
     
-    // Step 2: Insert user profile with the auth user ID
+    // Step 2: Sign in the user immediately to get an active session
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email: userData.email,
+      password: userData.password,
+    });
+    
+    if (signInError) {
+      console.warn('Could not auto-login after signup:', signInError.message);
+      // Continue anyway - the user can log in manually
+    }
+    
+    // Step 3: Insert user profile with the auth user ID
     const { data, error } = await supabase
       .from('users')
       .insert([{
