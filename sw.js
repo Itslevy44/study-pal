@@ -1,5 +1,6 @@
 
 const CACHE_NAME = 'studypal-v1';
+const RUNTIME_CACHE = 'studypal-runtime';
 const ASSETS = [
   '/',
   '/index.html',
@@ -9,15 +10,52 @@ const ASSETS = [
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS);
+      return cache.addAll(ASSETS).catch((error) => {
+        console.warn('Cache addAll failed:', error);
+      });
     })
   );
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys().then((cacheNames) => {
+      return Promise.all(
+        cacheNames
+          .filter((cacheName) => cacheName !== CACHE_NAME && cacheName !== RUNTIME_CACHE)
+          .map((cacheName) => caches.delete(cacheName))
+      );
+    })
+  );
+  self.clients.claim();
 });
 
 self.addEventListener('fetch', (event) => {
+  const { request } = event;
+  const url = new URL(request.url);
+
+  if (request.method !== 'GET') {
+    return;
+  }
+
   event.respondWith(
-    caches.match(event.request).then((response) => {
-      return response || fetch(event.request);
+    caches.match(request).then((response) => {
+      if (response) {
+        return response;
+      }
+      return fetch(request).then((response) => {
+        if (!response || response.status !== 200 || response.type === 'error') {
+          return response;
+        }
+        const responseToCache = response.clone();
+        caches.open(RUNTIME_CACHE).then((cache) => {
+          cache.put(request, responseToCache);
+        });
+        return response;
+      }).catch(() => {
+        return caches.match('/index.html');
+      });
     })
   );
 });

@@ -29,6 +29,7 @@ export interface StudyMaterial {
   description: string;
   uploadedBy: string;
   createdAt: string;
+  category?: string;
 }
 
 export interface TaskItem {
