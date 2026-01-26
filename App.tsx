@@ -34,6 +34,15 @@ const App: React.FC = () => {
       console.log('PWA was installed');
       setShowInstallPrompt(false);
       setDeferredPrompt(null);
+      // Show success message
+      alert('Study Pal has been installed successfully!');
+    };
+
+    const checkIfInstalled = async () => {
+      // Check if app is already installed
+      if (window.matchMedia('(display-mode: standalone)').matches) {
+        console.log('App is running as standalone/installed');
+      }
     };
 
     // Strict Security Measures to discourage screenshots and data theft
@@ -82,6 +91,9 @@ const App: React.FC = () => {
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     window.addEventListener('appinstalled', handleAppInstalled);
     document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // Check if already installed on mount
+    checkIfInstalled();
 
     return () => {
       window.removeEventListener('blur', activateSecurity);
