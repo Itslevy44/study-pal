@@ -4,11 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Study Pal - University Resource Hub</title>
-  <link rel="manifest" href="/manifest.json">
-  <link rel="icon" type="image/svg+xml" href="/icon-192.svg">
-  <link rel="apple-touch-icon" href="/icon-192.svg">
-  <meta name="theme-color" content="#3B82F6">
-  <meta name="description" content="A comprehensive platform for students to access study materials, manage schedules, track analytics, and collaborate with peers">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#4f46e5">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -28,7 +25,7 @@
       body { display: none !important; }
     }
     .screenshot-blur {
-      filter: blur(20px);
+      filter: blur(25px);
       transition: filter 0.3s ease;
     }
     .input {
@@ -40,7 +37,7 @@
         outline: none;
         transition: all 0.2s;
         font-weight: 500;
-        font-size: 16px; /* Prevents iOS zoom on focus */
+        font-size: 16px;
     }
     .input:focus {
         border-color: #6366f1;
@@ -71,6 +68,21 @@
         transform: scale(0.98);
         background-color: #4338ca;
     }
+    .btn-primary {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        background-color: #4f46e5;
+        color: white;
+        padding: 0.75rem 1.25rem;
+        border-radius: 0.75rem;
+        font-weight: 700;
+        font-size: 0.875rem;
+        transition: all 0.2s;
+    }
+    .btn-primary:hover {
+        background-color: #4338ca;
+    }
     .input-auth {
         width: 100%;
         padding: 0.875rem 1rem 0.875rem 3rem;
@@ -85,7 +97,6 @@
         border-color: #6366f1;
         background-color: white;
     }
-    /* Hide scrollbars for cleaner mobile look */
     .no-scrollbar::-webkit-scrollbar {
       display: none;
     }
@@ -94,20 +105,20 @@
       scrollbar-width: none;
     }
   </style>
+<script type="importmap">
+{
+  "imports": {
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "@google/genai": "https://esm.sh/@google/genai@^1.38.0",
+    "lucide-react": "https://esm.sh/lucide-react@^0.563.0",
+    "react": "https://esm.sh/react@^19.2.3",
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2"
+  }
+}
+</script>
 </head>
 <body class="bg-slate-50 text-slate-900">
   <div id="root"></div>
-  <script type="module" src="/index.tsx"></script>
-  <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js').then(reg => {
-          console.log('Service Worker registered successfully');
-        }).catch(err => {
-          console.log('Service Worker registration failed:', err);
-        });
-      });
-    }
-  </script>
 </body>
 </html>
