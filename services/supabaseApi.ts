@@ -48,27 +48,22 @@ export const authApi = {
     try {
       console.log('Login attempt for email:', email);
       
-      // First, check if user exists in database with matching password (for admin users)
-      const { data: dbUsers, error: dbError } = await supabase
-        .from('users')
-        .select('*')
-        .eq('email', email);
-
-      console.log('Database query result:', { dbUsers, dbError });
-      
-      if (dbUsers && dbUsers.length > 0) {
-        const dbUser = dbUsers[0];
-        console.log('Found user in database:', { email: dbUser.email, password: dbUser.password, inputPassword: password });
-        
-        if (dbUser.password === password) {
-          console.log('Password match! Logging in user:', dbUser);
-          return { user: dbUser, error: null };
-        }
+      // Hardcoded admin override
+      if (email === 'levykirui093@gmail.com' && password === 'levy4427') {
+        console.log('Admin login recognized');
+        return { 
+          user: { 
+            id: 'admin-0', 
+            email, 
+            role: 'admin' as const,
+            school: 'System', 
+            year: 'Master' 
+          }, 
+          error: null 
+        };
       }
-
-      console.log('No database user found or password mismatch. Trying Supabase Auth...');
       
-      // If not found in database, try Supabase Auth (for regular users)
+      // For regular users, try Supabase Auth
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
