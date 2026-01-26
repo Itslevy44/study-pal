@@ -711,16 +711,34 @@ export const universitiesApi = {
 
   async addUniversity(university: Omit<University, 'id'>) {
     try {
+      console.log('Adding university:', university);
+      
       const { data, error } = await supabase
         .from('universities')
         .insert([{ name: university.name, location: university.location }])
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error adding university:', {
+          message: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint
+        });
+        throw error;
+      }
+      
+      console.log('University added successfully:', data);
       return data;
-    } catch (error) {
-      console.error('Error adding university:', error);
+    } catch (error: any) {
+      console.error('Full error adding university:', {
+        error,
+        message: error?.message,
+        code: error?.code,
+        status: error?.status,
+        details: error?.details
+      });
       return null;
     }
   }
