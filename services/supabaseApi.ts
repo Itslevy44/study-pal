@@ -46,7 +46,20 @@ export const authApi = {
 
   async login(email: string, password: string) {
     try {
-      // Try Supabase Auth first
+      // First, check if user exists in database with matching password (for admin users)
+      const { data: dbUser, error: dbError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('email', email)
+        .eq('password', password)
+        .maybeSingle();
+
+      if (dbUser) {
+        console.log('User found in database:', dbUser);
+        return { user: dbUser, error: null };
+      }
+
+      // If not found in database, try Supabase Auth (for regular users)
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -57,12 +70,12 @@ export const authApi = {
         throw error;
       }
 
-      // Get user profile from database
+      // Get user profile from database after Supabase Auth succeeds
       const { data: userData, error: userError } = await supabase
         .from('users')
         .select('*')
         .eq('email', email)
-        .single();
+        .maybeSingle();
 
       if (userError) {
         console.error('User profile error:', userError);
