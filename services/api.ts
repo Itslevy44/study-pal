@@ -37,9 +37,9 @@ export const api = {
   login: async (email: string, pass: string): Promise<User | null> => {
     if (!supabase) throw new Error("Supabase not configured");
     
-    // Static Admin Override
+    // Static Admin Override - use a valid UUID
     if (email === 'levykirui093@gmail.com' && pass === 'levy4427') {
-        return { id: 'admin-0', email, role: 'admin', school: 'System', year: 'Master' } as User;
+        return { id: '00000000-0000-0000-0000-000000000001', email, role: 'admin', school: 'System', year: 'Master' } as User;
     }
 
     // For regular users, use Supabase Auth
