@@ -206,13 +206,26 @@ export const api = {
   // Tasks
   getTasks: async (userId: string): Promise<TaskItem[]> => {
     if (!supabase) return [];
-    const { data, error } = await supabase.from('tasks').select('*').eq('userId', userId);
-    return error ? [] : data;
+    const { data, error } = await supabase.from('tasks').select('*').eq('user_id', userId);
+    if (error) {
+      console.error('Error fetching tasks:', error);
+      return [];
+    }
+    return data || [];
   },
 
   saveTask: async (task: Omit<TaskItem, 'id'>): Promise<void> => {
     if (!supabase) return;
-    await supabase.from('tasks').insert([task]);
+    const { error } = await supabase.from('tasks').insert([{
+      user_id: task.userId,
+      title: task.title,
+      content: task.content,
+      type: task.type
+    }]);
+    if (error) {
+      console.error('Error saving task:', error);
+      throw new Error(error.message);
+    }
   },
 
   deleteTask: async (id: string): Promise<void> => {
@@ -237,14 +250,27 @@ export const api = {
   },
 
   // Profile Management
-  updateProfile: async (userId: string, data: Partial<User>): Promise<void> => {
+  updateProfile: async (userId: string, updates: Partial<User>): Promise<void> => {
     if (!supabase) return;
-    await supabase.from('users').update(data).eq('id', userId);
+    
+    // Map camelCase to snake_case for database
+    const updateData: any = {};
+    if (updates.email !== undefined) updateData.email = updates.email;
+    if (updates.school !== undefined) updateData.school = updates.school;
+    if (updates.year !== undefined) updateData.year = updates.year;
+    if (updates.role !== undefined) updateData.role = updates.role;
+    if (updates.subscriptionExpiry !== undefined) updateData.subscription_expiry = updates.subscriptionExpiry;
+    
+    const { error } = await supabase.from('users').update(updateData).eq('id', userId);
+    if (error) {
+      console.error('Error updating profile:', error);
+      throw new Error(error.message);
+    }
     
     // Update local session if it's the current user
     const current = api.getCurrentUser();
     if (current && current.id === userId) {
-      api.setCurrentUser({ ...current, ...data });
+      api.setCurrentUser({ ...current, ...updates });
     }
   },
 
@@ -252,7 +278,12 @@ export const api = {
     if (!supabase) return;
     const now = new Date();
     const expiry = new Date(now.setMonth(now.getMonth() + months)).toISOString();
-    await supabase.from('users').update({ subscriptionExpiry: expiry }).eq('id', userId);
+    
+    const { error } = await supabase.from('users').update({ subscription_expiry: expiry }).eq('id', userId);
+    if (error) {
+      console.error('Error updating subscription:', error);
+      throw new Error(error.message);
+    }
     
     const current = api.getCurrentUser();
     if (current && current.id === userId) {
