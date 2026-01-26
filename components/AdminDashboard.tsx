@@ -121,7 +121,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
         fileUrl: selectedFile.data,
         fileName: selectedFile.name,
         fileExtension: selectedFile.ext,
-        uploadedBy: user.email
+        uploadedBy: user.id
       });
 
       setNewTitle('');
