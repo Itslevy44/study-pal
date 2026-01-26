@@ -55,6 +55,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
 
   const [uniName, setUniName] = useState('');
   const [uniLocation, setUniLocation] = useState('');
+  const [uniError, setUniError] = useState('');
+  const [isAddingUni, setIsAddingUni] = useState(false);
 
   useEffect(() => {
     storageService.initializeStorage();
@@ -199,17 +201,36 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
 
   const handleAddUni = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!uniName) return;
-    
-    await universitiesApi.addUniversity({
-      name: uniName,
-      location: uniLocation
-    });
-    
-    setUniName('');
-    setUniLocation('');
-    setShowUniModal(false);
-    refreshData();
+    if (!uniName.trim()) {
+      setUniError('University name is required');
+      return;
+    }
+
+    setIsAddingUni(true);
+    setUniError('');
+
+    try {
+      const result = await universitiesApi.addUniversity({
+        name: uniName,
+        location: uniLocation
+      });
+
+      if (!result) {
+        setUniError('Failed to add university. Please check the console for details.');
+        return;
+      }
+
+      setUniName('');
+      setUniLocation('');
+      setShowUniModal(false);
+      setUniError('');
+      await refreshData();
+    } catch (error: any) {
+      console.error('Add university error:', error);
+      setUniError(error?.message || 'Failed to add university. Check browser console.');
+    } finally {
+      setIsAddingUni(false);
+    }
   };
 
   const handleDeleteMaterial = async (id: string, fileUrl?: string) => {
@@ -656,6 +677,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
             </div>
 
             <form onSubmit={handleAddUni} className="p-6 space-y-4">
+              {uniError && (
+                <div className="p-4 bg-red-100 dark:bg-red-900 border border-red-400 dark:border-red-700 rounded text-red-700 dark:text-red-200 flex items-start gap-2">
+                  <AlertCircle size={20} className="flex-shrink-0 mt-0.5" />
+                  <p className="text-sm">{uniError}</p>
+                </div>
+              )}
+
               <div>
                 <label className="block text-sm font-semibold text-gray-700 dark:text-white mb-2">Name</label>
                 <input
@@ -663,7 +691,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
                   value={uniName}
                   onChange={e => setUniName(e.target.value)}
                   required
-                  className="w-full px-4 py-2 border dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  disabled={isAddingUni}
+                  className="w-full px-4 py-2 border dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
                   placeholder="University name"
                 />
               </div>
@@ -674,7 +703,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
                   type="text"
                   value={uniLocation}
                   onChange={e => setUniLocation(e.target.value)}
-                  className="w-full px-4 py-2 border dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  disabled={isAddingUni}
+                  className="w-full px-4 py-2 border dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
                   placeholder="City, Country"
                 />
               </div>
@@ -682,14 +712,26 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
               <div className="flex gap-3 pt-4">
                 <button
                   type="submit"
-                  className="flex-1 px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
+                  disabled={isAddingUni}
+                  className="flex-1 px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:bg-gray-400 transition flex items-center justify-center gap-2"
                 >
-                  Add University
+                  {isAddingUni ? (
+                    <>
+                      <Loader size={18} className="animate-spin" />
+                      Adding...
+                    </>
+                  ) : (
+                    'Add University'
+                  )}
                 </button>
                 <button
                   type="button"
-                  onClick={() => setShowUniModal(false)}
-                  className="flex-1 px-6 py-3 bg-gray-300 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-400 transition"
+                  onClick={() => {
+                    setShowUniModal(false);
+                    setUniError('');
+                  }}
+                  disabled={isAddingUni}
+                  className="flex-1 px-6 py-3 bg-gray-300 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-400 disabled:opacity-50 transition"
                 >
                   Cancel
                 </button>
