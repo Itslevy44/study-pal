@@ -4,12 +4,14 @@ import { api } from './services/api';
 import Auth from './components/Auth';
 import AdminDashboard from './components/AdminDashboard';
 import StudentDashboard from './components/StudentDashboard';
-import { ShieldAlert, BookOpen, ShieldCheck, RefreshCw } from 'lucide-react';
+import { ShieldAlert, BookOpen, ShieldCheck, RefreshCw, Download, X } from 'lucide-react';
 
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [isSecurityActive, setIsSecurityActive] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [showInstallPrompt, setShowInstallPrompt] = useState(false);
 
   const refreshUser = () => {
     const session = api.getCurrentUser();
@@ -19,6 +21,13 @@ const App: React.FC = () => {
   useEffect(() => {
     refreshUser();
     setLoading(false);
+
+    // Handle install prompt
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setShowInstallPrompt(true);
+    };
 
     // Strict Security Measures to discourage screenshots and data theft
     const activateSecurity = () => {
@@ -63,6 +72,7 @@ const App: React.FC = () => {
     window.addEventListener('contextmenu', handleContextMenu);
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('dragstart', handleDragStart);
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
@@ -71,6 +81,7 @@ const App: React.FC = () => {
       window.removeEventListener('contextmenu', handleContextMenu);
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('dragstart', handleDragStart);
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, []);
@@ -78,6 +89,20 @@ const App: React.FC = () => {
   const handleLogout = () => {
     api.setCurrentUser(null);
     setUser(null);
+  };
+
+  const handleInstallClick = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      console.log(`User response to the install prompt: ${outcome}`);
+      setDeferredPrompt(null);
+      setShowInstallPrompt(false);
+    }
+  };
+
+  const handleDismissInstall = () => {
+    setShowInstallPrompt(false);
   };
 
   if (loading) {
@@ -92,6 +117,34 @@ const App: React.FC = () => {
 
   return (
     <div className={`min-h-screen transition-all duration-300 ${isSecurityActive ? 'screenshot-blur pointer-events-none select-none' : ''}`}>
+      {/* Install Prompt */}
+      {showInstallPrompt && (
+        <div className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white p-4 shadow-xl">
+          <div className="max-w-6xl mx-auto flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <Download className="w-5 h-5 flex-shrink-0" />
+              <div>
+                <p className="font-semibold text-sm">Install Study Pal</p>
+                <p className="text-xs opacity-90">Access your study materials offline</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleInstallClick}
+                className="bg-white text-indigo-600 px-4 py-2 rounded-lg font-semibold text-sm hover:bg-indigo-50 transition-colors"
+              >
+                Install
+              </button>
+              <button
+                onClick={handleDismissInstall}
+                className="p-2 hover:bg-indigo-600/50 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {user ? (
         user.role === 'admin' ? (
           <AdminDashboard user={user} onLogout={handleLogout} />
