@@ -57,6 +57,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
   const [uniLocation, setUniLocation] = useState('');
   const [uniError, setUniError] = useState('');
   const [isAddingUni, setIsAddingUni] = useState(false);
+  
+  // University Edit State
+  const [showEditUniModal, setShowEditUniModal] = useState(false);
+  const [editingUniId, setEditingUniId] = useState<string | null>(null);
+  const [editUniName, setEditUniName] = useState('');
+  const [editUniLocation, setEditUniLocation] = useState('');
+  const [isEditingUni, setIsEditingUni] = useState(false);
 
   useEffect(() => {
     storageService.initializeStorage();
@@ -230,6 +237,46 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
       setUniError(error?.message || 'Failed to add university. Check browser console.');
     } finally {
       setIsAddingUni(false);
+    }
+  };
+
+  const handleEditUniInit = (uni: University) => {
+    setEditingUniId(uni.id);
+    setEditUniName(uni.name);
+    setEditUniLocation(uni.location || '');
+    setShowEditUniModal(true);
+  };
+
+  const handleUpdateUni = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingUniId || !editUniName.trim()) {
+      alert('University name is required');
+      return;
+    }
+
+    setIsEditingUni(true);
+
+    try {
+      const { error } = await supabase
+        .from('universities')
+        .update({ 
+          name: editUniName, 
+          location: editUniLocation 
+        })
+        .eq('id', editingUniId);
+
+      if (error) throw error;
+
+      setShowEditUniModal(false);
+      setEditingUniId(null);
+      setEditUniName('');
+      setEditUniLocation('');
+      await refreshData();
+    } catch (error: any) {
+      console.error('Update university error:', error);
+      alert('Failed to update university');
+    } finally {
+      setIsEditingUni(false);
     }
   };
 
@@ -468,13 +515,22 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
                       </div>
                       <p className="text-sm text-gray-600 dark:text-gray-400">{uni.location || 'No location specified'}</p>
                     </div>
-                    <button
-                      onClick={() => handleDeleteUniversity(uni.id, uni.name)}
-                      className="mt-4 w-full px-3 py-2 text-sm bg-red-500 text-white rounded hover:bg-red-600 flex items-center justify-center gap-1 transition"
-                    >
-                      <Trash2 size={14} />
-                      Delete
-                    </button>
+                    <div className="mt-4 flex gap-2">
+                      <button
+                        onClick={() => handleEditUniInit(uni)}
+                        className="flex-1 px-3 py-2 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 flex items-center justify-center gap-1 transition"
+                      >
+                        <Edit3 size={14} />
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleDeleteUniversity(uni.id, uni.name)}
+                        className="flex-1 px-3 py-2 text-sm bg-red-500 text-white rounded hover:bg-red-600 flex items-center justify-center gap-1 transition"
+                      >
+                        <Trash2 size={14} />
+                        Delete
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -731,6 +787,85 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
                     setUniError('');
                   }}
                   disabled={isAddingUni}
+                  className="flex-1 px-6 py-3 bg-gray-300 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-400 disabled:opacity-50 transition"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit University Modal */}
+      {showEditUniModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full">
+            <div className="border-b dark:border-gray-700 px-6 py-4 flex items-center justify-between">
+              <h2 className="text-xl font-bold text-gray-800 dark:text-white">Edit University</h2>
+              <button
+                onClick={() => {
+                  setShowEditUniModal(false);
+                  setEditingUniId(null);
+                  setEditUniName('');
+                  setEditUniLocation('');
+                }}
+                className="text-gray-500 hover:text-gray-700 dark:text-gray-400"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateUni} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-white mb-2">Name</label>
+                <input
+                  type="text"
+                  value={editUniName}
+                  onChange={e => setEditUniName(e.target.value)}
+                  required
+                  disabled={isEditingUni}
+                  className="w-full px-4 py-2 border dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
+                  placeholder="University name"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-white mb-2">Location</label>
+                <input
+                  type="text"
+                  value={editUniLocation}
+                  onChange={e => setEditUniLocation(e.target.value)}
+                  disabled={isEditingUni}
+                  className="w-full px-4 py-2 border dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
+                  placeholder="City, Country"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="submit"
+                  disabled={isEditingUni}
+                  className="flex-1 px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:bg-gray-400 transition flex items-center justify-center gap-2"
+                >
+                  {isEditingUni ? (
+                    <>
+                      <Loader size={18} className="animate-spin" />
+                      Updating...
+                    </>
+                  ) : (
+                    'Update University'
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEditUniModal(false);
+                    setEditingUniId(null);
+                    setEditUniName('');
+                    setEditUniLocation('');
+                  }}
+                  disabled={isEditingUni}
                   className="flex-1 px-6 py-3 bg-gray-300 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-gray-400 disabled:opacity-50 transition"
                 >
                   Cancel
