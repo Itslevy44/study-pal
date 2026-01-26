@@ -97,25 +97,44 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
 
   const handleAddMaterial = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedFile) return alert("Select a file.");
+    if (!selectedFile) {
+      alert("Select a file.");
+      return;
+    }
+    if (!newTitle.trim()) {
+      alert("Enter a title.");
+      return;
+    }
+    if (!newSchool.trim()) {
+      alert("Select a university.");
+      return;
+    }
     
     setLoading(true);
-    await api.addMaterial({
-      title: newTitle,
-      type: newType,
-      school: newSchool,
-      year: newYear,
-      description: `Academic resource for ${newSchool}`,
-      fileUrl: selectedFile.data,
-      fileName: selectedFile.name,
-      fileExtension: selectedFile.ext,
-      uploadedBy: user.email
-    });
+    try {
+      await api.addMaterial({
+        title: newTitle,
+        type: newType,
+        school: newSchool,
+        year: newYear,
+        description: `Academic resource for ${newSchool}`,
+        fileUrl: selectedFile.data,
+        fileName: selectedFile.name,
+        fileExtension: selectedFile.ext,
+        uploadedBy: user.email
+      });
 
-    setNewTitle('');
-    setSelectedFile(null);
-    setShowAddModal(false);
-    await refreshData();
+      setNewTitle('');
+      setNewSchool('');
+      setSelectedFile(null);
+      setShowAddModal(false);
+      await refreshData();
+    } catch (error) {
+      console.error('Error adding material:', error);
+      alert('Failed to add resource. Check console for details.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleEditInit = (m: StudyMaterial) => {

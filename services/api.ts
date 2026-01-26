@@ -98,26 +98,76 @@ export const api = {
   // Materials
   getMaterials: async (): Promise<StudyMaterial[]> => {
     if (!supabase) return [];
-    const { data, error } = await supabase.from('materials').select('*').order('created_at', { ascending: false });
-    return error ? [] : data;
+    const { data, error } = await supabase.from('study_materials').select('*').order('created_at', { ascending: false });
+    if (error) {
+      console.error('Error fetching materials:', error);
+      return [];
+    }
+    // Map snake_case from database to camelCase for frontend
+    return (data || []).map(item => ({
+      id: item.id,
+      title: item.title,
+      type: item.type,
+      fileUrl: item.file_url,
+      fileName: item.file_name,
+      fileExtension: item.file_extension,
+      school: item.school,
+      year: item.year,
+      description: item.description,
+      uploadedBy: item.uploaded_by,
+      createdAt: item.created_at
+    }));
   },
 
   addMaterial: async (material: Omit<StudyMaterial, 'id' | 'createdAt'>): Promise<void> => {
-    if (!supabase) return;
-    await supabase.from('materials').insert([{
-      ...material,
+    if (!supabase) throw new Error("Supabase not configured");
+    const { data, error } = await supabase.from('study_materials').insert([{
+      title: material.title,
+      type: material.type,
+      file_url: material.fileUrl,
+      file_name: material.fileName,
+      file_extension: material.fileExtension,
+      school: material.school,
+      year: material.year,
+      description: material.description,
+      uploaded_by: material.uploadedBy,
       created_at: new Date().toISOString()
-    }]);
+    }]).select();
+    
+    if (error) {
+      console.error('Supabase error adding material:', error);
+      throw new Error(error.message);
+    }
+    
+    console.log('Material added successfully:', data);
   },
 
-  updateMaterial: async (id: string, data: Partial<StudyMaterial>): Promise<void> => {
+  updateMaterial: async (id: string, material: Partial<StudyMaterial>): Promise<void> => {
     if (!supabase) return;
-    await supabase.from('materials').update(data).eq('id', id);
+    const updateData: any = {};
+    if (material.title !== undefined) updateData.title = material.title;
+    if (material.type !== undefined) updateData.type = material.type;
+    if (material.school !== undefined) updateData.school = material.school;
+    if (material.year !== undefined) updateData.year = material.year;
+    if (material.description !== undefined) updateData.description = material.description;
+    if (material.fileUrl !== undefined) updateData.file_url = material.fileUrl;
+    if (material.fileName !== undefined) updateData.file_name = material.fileName;
+    if (material.fileExtension !== undefined) updateData.file_extension = material.fileExtension;
+    
+    const { error } = await supabase.from('study_materials').update(updateData).eq('id', id);
+    if (error) {
+      console.error('Error updating material:', error);
+      throw new Error(error.message);
+    }
   },
 
   deleteMaterial: async (id: string): Promise<void> => {
     if (!supabase) return;
-    await supabase.from('materials').delete().eq('id', id);
+    const { error } = await supabase.from('study_materials').delete().eq('id', id);
+    if (error) {
+      console.error('Error deleting material:', error);
+      throw new Error(error.message);
+    }
   },
 
   // Tasks
