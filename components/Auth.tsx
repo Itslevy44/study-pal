@@ -39,12 +39,6 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
         return;
       }
 
-      if (!school) {
-        setError('Please select your institution.');
-        setLoading(false);
-        return;
-      }
-
       if (isLogin) {
         const { user, error } = await authApi.login(email, password);
         if (error) {
@@ -56,6 +50,11 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
           onLogin(user);
         }
       } else {
+        if (!school) {
+          setError('Please select your institution.');
+          setLoading(false);
+          return;
+        }
         if (!year) {
           setError('Please select your year.');
           setLoading(false);
@@ -111,25 +110,27 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
               <input type="password" placeholder="Password" className="input-auth" value={password} onChange={(e) => setPassword(e.target.value)} required />
             </div>
 
-            <div className="relative">
-              <School className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" />
-              <select required className="input-auth appearance-none font-bold" value={school} onChange={(e) => setSchool(e.target.value)}>
-                <option value="">Select Institution...</option>
-                {universities.length === 0 ? (
-                  <option disabled>Loading institutions...</option>
-                ) : (
-                  universities.map(u => <option key={u.id} value={u.name}>{u.name}</option>)
-                )}
-              </select>
-            </div>
-
             {!isLogin && (
-              <div className="animate-in fade-in slide-in-from-top-2">
+              <div className="space-y-4">
                 <div className="relative">
-                  <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" />
-                  <select className="input-auth appearance-none font-bold" value={year} onChange={(e) => setYear(e.target.value)}>
-                    <option>First Year</option><option>Second Year</option><option>Third Year</option><option>Fourth Year</option>
+                  <School className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" />
+                  <select required className="input-auth appearance-none font-bold" value={school} onChange={(e) => setSchool(e.target.value)}>
+                    <option value="">Select Institution...</option>
+                    {universities.length === 0 ? (
+                      <option disabled>Loading institutions...</option>
+                    ) : (
+                      universities.map(u => <option key={u.id} value={u.name}>{u.name}</option>)
+                    )}
                   </select>
+                </div>
+
+                <div className="animate-in fade-in slide-in-from-top-2">
+                  <div className="relative">
+                    <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" />
+                    <select className="input-auth appearance-none font-bold" value={year} onChange={(e) => setYear(e.target.value)}>
+                      <option>First Year</option><option>Second Year</option><option>Third Year</option><option>Fourth Year</option>
+                    </select>
+                  </div>
                 </div>
               </div>
             )}
