@@ -46,26 +46,29 @@ export const authApi = {
 
   async login(email: string, password: string) {
     try {
-      // Check for default admin
-      if (email === 'levykirui093@gmail.com' && password === 'levy4427') {
-        return {
-          user: {
-            id: 'admin-default-0',
-            email: 'levykirui093@gmail.com',
-            school: 'System',
-            year: 'Master',
-            role: 'admin'
-          } as any,
-          error: null
-        };
+      // First check if user exists in database with matching password
+      const { data: dbUser, error: dbError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('email', email)
+        .eq('password', password)
+        .single();
+
+      if (dbUser) {
+        console.log('User found in database:', dbUser);
+        return { user: dbUser, error: null };
       }
 
+      // If not in database, try Supabase Auth
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Auth error:', error);
+        throw error;
+      }
 
       const { data: userData, error: userError } = await supabase
         .from('users')
@@ -77,6 +80,7 @@ export const authApi = {
 
       return { user: userData, error: null };
     } catch (error: any) {
+      console.error('Login error:', error);
       return { user: null, error: error.message || error };
     }
   },
