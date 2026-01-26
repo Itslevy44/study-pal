@@ -25,12 +25,34 @@ export const api = {
   // Users
   register: async (userData: Omit<User, 'id'>): Promise<User> => {
     if (!supabase) throw new Error("Supabase not configured");
+    
+    // Step 1: Create auth user
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email: userData.email,
+      password: userData.password,
+    });
+    
+    if (authError) throw new Error(authError.message);
+    if (!authData.user?.id) throw new Error('Auth signup failed');
+    
+    // Step 2: Insert user profile with the auth user ID
     const { data, error } = await supabase
       .from('users')
-      .insert([userData])
+      .insert([{
+        id: authData.user.id,
+        email: userData.email,
+        school: userData.school,
+        year: userData.year,
+        role: 'student'
+      }])
       .select()
       .single();
-    if (error) throw error;
+    
+    if (error) {
+      console.error('Error registering user:', error);
+      throw new Error(error.message);
+    }
+    
     return data;
   },
 
