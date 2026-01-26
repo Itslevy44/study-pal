@@ -47,6 +47,14 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
           setLoading(false);
           return;
         }
+        
+        // Basic password validation
+        if (password.length < 6) {
+          setError('Password must be at least 6 characters long.');
+          setLoading(false);
+          return;
+        }
+        
         const newUser = await api.register({
           email,
           password,
@@ -58,7 +66,14 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
         onLogin(newUser);
       }
     } catch (err: any) {
-      setError(err.message || 'An error occurred during authentication.');
+      const message = err.message || 'An error occurred during authentication.';
+      if (message.includes('429') || message.includes('rate')) {
+        setError('Too many signup attempts. Please wait a few minutes and try again.');
+      } else if (message.includes('already registered')) {
+        setError('This email is already registered. Please log in instead.');
+      } else {
+        setError(message);
+      }
     } finally {
       setLoading(false);
     }
