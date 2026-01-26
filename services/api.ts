@@ -80,9 +80,14 @@ export const api = {
     return error ? [] : data;
   },
 
-  addUniversity: async (name: string): Promise<void> => {
+  addUniversity: async (name: string, location?: string): Promise<void> => {
     if (!supabase) return;
-    await supabase.from('universities').insert([{ name }]);
+    await supabase.from('universities').insert([{ name, location: location || '' }]);
+  },
+
+  updateUniversity: async (id: string, name: string, location?: string): Promise<void> => {
+    if (!supabase) return;
+    await supabase.from('universities').update({ name, location: location || '' }).eq('id', id);
   },
 
   deleteUniversity: async (id: string): Promise<void> => {

@@ -43,9 +43,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showAdminModal, setShowAdminModal] = useState(false);
   const [showUniModal, setShowUniModal] = useState(false);
+  const [showEditUniModal, setShowEditUniModal] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   
   const [currentMaterialId, setCurrentMaterialId] = useState<string | null>(null);
+  const [editingUniId, setEditingUniId] = useState<string | null>(null);
   const [newTitle, setNewTitle] = useState('');
   const [newType, setNewType] = useState<'note' | 'past-paper'>('note');
   const [newSchool, setNewSchool] = useState('');
@@ -56,6 +58,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
   const [adminEmail, setAdminEmail] = useState('');
   const [adminPass, setAdminPass] = useState('');
   const [uniName, setUniName] = useState('');
+  const [uniLocation, setUniLocation] = useState('');
 
   useEffect(() => {
     refreshData();
@@ -173,6 +176,55 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
     }
   };
 
+  const handleAddUniversity = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!uniName.trim()) {
+      alert('Please enter university name');
+      return;
+    }
+    setLoading(true);
+    try {
+      await api.addUniversity(uniName, uniLocation);
+      setUniName('');
+      setUniLocation('');
+      setShowUniModal(false);
+      await refreshData();
+    } catch (error) {
+      alert('Failed to add university');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEditUniInit = (uni: University) => {
+    setEditingUniId(uni.id);
+    setUniName(uni.name);
+    setUniLocation(uni.location || '');
+    setShowEditUniModal(true);
+  };
+
+  const handleUpdateUniversity = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!uniName.trim()) {
+      alert('Please enter university name');
+      return;
+    }
+    if (!editingUniId) return;
+    setLoading(true);
+    try {
+      await api.updateUniversity(editingUniId, uniName, uniLocation);
+      setShowEditUniModal(false);
+      setEditingUniId(null);
+      setUniName('');
+      setUniLocation('');
+      await refreshData();
+    } catch (error) {
+      alert('Failed to update university');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const getFormatIcon = (ext: string) => {
     switch(ext) {
       case 'pdf': return <FileText className="text-red-500" />;
@@ -217,7 +269,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
           </div>
           <div className="flex gap-2 w-full md:w-auto">
             {activeTab === 'materials' && <button onClick={() => setShowAddModal(true)} className="btn-primary flex-1 md:flex-none"><Upload size={18} /> Upload Resource</button>}
-            {activeTab === 'universities' && <button onClick={async () => { const n = prompt('Uni Name:'); if(n){ await api.addUniversity(n); refreshData(); } }} className="btn-primary flex-1 md:flex-none"><PlusCircle size={18} /> New Uni</button>}
+            {activeTab === 'universities' && <button onClick={() => { setUniName(''); setUniLocation(''); setShowUniModal(true); }} className="btn-primary flex-1 md:flex-none"><PlusCircle size={18} /> New Uni</button>}
           </div>
         </header>
 
@@ -273,11 +325,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
                 {universities.map(uni => (
                   <div key={uni.id} className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm hover:shadow-lg transition-all">
                     <div className="flex items-start justify-between mb-4">
-                      <div>
+                      <div className="flex-1">
                         <h3 className="font-bold text-slate-800 text-lg">{uni.name}</h3>
                         <p className="text-sm text-slate-500">{uni.location || 'Location TBD'}</p>
                       </div>
-                      <button onClick={() => handleDeleteUniversity(uni.id)} className="p-2 text-slate-300 hover:text-red-500 bg-slate-50 rounded-lg"><Trash2 size={16} /></button>
+                      <div className="flex gap-2">
+                        <button onClick={() => handleEditUniInit(uni)} className="p-2 text-slate-300 hover:text-indigo-600 bg-slate-50 rounded-lg"><Edit3 size={16} /></button>
+                        <button onClick={() => handleDeleteUniversity(uni.id)} className="p-2 text-slate-300 hover:text-red-500 bg-slate-50 rounded-lg"><Trash2 size={16} /></button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -309,6 +364,64 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
                 <select className="input" value={newType} onChange={e => setNewType(e.target.value as any)}><option value="note">Notes</option><option value="past-paper">Past Paper</option></select>
                 <select required className="input" value={newSchool} onChange={e => setNewSchool(e.target.value)}>{universities.map(u => <option key={u.id} value={u.name}>{u.name}</option>)}</select>
                 <button type="submit" disabled={loading} className="btn-submit">{loading ? 'Updating...' : 'Save Changes'}</button>
+            </form>
+          </Modal>
+        )}
+
+        {showUniModal && (
+          <Modal title="Add New University" onClose={() => setShowUniModal(false)}>
+            <form onSubmit={handleAddUniversity} className="space-y-4">
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">University Name</label>
+                <input 
+                  type="text"
+                  required 
+                  className="input" 
+                  value={uniName} 
+                  onChange={e => setUniName(e.target.value)} 
+                  placeholder="e.g., University of Nairobi"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Location</label>
+                <input 
+                  type="text"
+                  className="input" 
+                  value={uniLocation} 
+                  onChange={e => setUniLocation(e.target.value)} 
+                  placeholder="e.g., Nairobi, Kenya"
+                />
+              </div>
+              <button type="submit" disabled={loading} className="btn-submit w-full">{loading ? 'Adding...' : 'Add University'}</button>
+            </form>
+          </Modal>
+        )}
+
+        {showEditUniModal && (
+          <Modal title="Edit University" onClose={() => setShowEditUniModal(false)}>
+            <form onSubmit={handleUpdateUniversity} className="space-y-4">
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">University Name</label>
+                <input 
+                  type="text"
+                  required 
+                  className="input" 
+                  value={uniName} 
+                  onChange={e => setUniName(e.target.value)} 
+                  placeholder="e.g., University of Nairobi"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Location</label>
+                <input 
+                  type="text"
+                  className="input" 
+                  value={uniLocation} 
+                  onChange={e => setUniLocation(e.target.value)} 
+                  placeholder="e.g., Nairobi, Kenya"
+                />
+              </div>
+              <button type="submit" disabled={loading} className="btn-submit w-full">{loading ? 'Updating...' : 'Save Changes'}</button>
             </form>
           </Modal>
         )}
