@@ -159,6 +159,58 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, onR
                 </div>
               )}
 
+              {activeTab === 'saved' && (
+                <div className="max-w-6xl mx-auto">
+                  <h2 className="text-2xl font-black text-slate-800 mb-5">My Saved Resources</h2>
+                  <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {offlineMaterials.length > 0 ? offlineMaterials.map(m => (
+                      <MaterialCard key={m.id} material={m} isSubscribed={true} onOpen={() => setViewingMaterial(m)} onSave={() => {}} onUpgrade={() => {}} />
+                    )) : <div className="col-span-full py-20 text-center"><DownloadCloud size={48} className="mx-auto text-slate-200 mb-4" /><p className="font-bold text-slate-400">No saved resources yet</p></div>}
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'tasks' && (
+                <div className="max-w-2xl mx-auto">
+                  <div className="flex items-center justify-between mb-8">
+                    <h2 className="text-2xl font-black text-slate-800">My Study Space</h2>
+                    <button onClick={() => setShowTaskModal(true)} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl font-black text-sm"><PlusCircle size={18} /> New Task</button>
+                  </div>
+                  <div className="space-y-4">
+                    {tasks.length > 0 ? tasks.map(task => (
+                      <div key={task.id} className="bg-white rounded-2xl p-6 border flex items-start justify-between hover:shadow-lg transition-all">
+                        <div className="flex-1">
+                          <h4 className="font-black text-slate-800 text-lg">{task.title}</h4>
+                          <p className="text-slate-400 text-sm mt-2 line-clamp-3">{task.content}</p>
+                        </div>
+                        <button onClick={() => api.deleteTask(task.id).then(() => refreshData())} className="p-3 text-red-500 hover:bg-red-50 rounded-xl"><Trash2 size={18} /></button>
+                      </div>
+                    )) : <div className="py-20 text-center"><Calendar size={48} className="mx-auto text-slate-200 mb-4" /><p className="font-bold text-slate-400">No tasks yet</p></div>}
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'ai' && (
+                <div className="max-w-2xl mx-auto">
+                  <h2 className="text-2xl font-black text-slate-800 mb-8">Study Tutor</h2>
+                  <div className="bg-white rounded-3xl p-8 border space-y-6">
+                    <div className="space-y-3">
+                      <label className="text-sm font-black text-slate-400">Ask something about your studies:</label>
+                      <div className="flex gap-3">
+                        <input type="text" placeholder="What would you like help with?" className="input flex-1" value={query} onChange={e => setQuery(e.target.value)} disabled={aiLoading} />
+                        <button onClick={handleAskAI} disabled={aiLoading} className="p-4 bg-indigo-600 text-white rounded-2xl hover:bg-indigo-700 disabled:opacity-50"><Send size={18} /></button>
+                      </div>
+                    </div>
+                    {aiResponse && (
+                      <div className="bg-indigo-50 border border-indigo-200 rounded-2xl p-6">
+                        <p className="text-slate-800 leading-relaxed">{aiResponse}</p>
+                      </div>
+                    )}
+                    {aiLoading && <div className="flex items-center justify-center py-8"><Loader2 className="animate-spin text-indigo-600" size={32} /></div>}
+                  </div>
+                </div>
+              )}
+
               {activeTab === 'profile' && (
                 <div className="max-w-xl mx-auto space-y-6">
                   <div className="bg-white rounded-3xl p-8 border">
@@ -187,6 +239,16 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, onR
             <select required className="input" value={editSchool} onChange={e => setEditSchool(e.target.value)}>{universities.map(u => <option key={u.id} value={u.name}>{u.name}</option>)}</select>
             <select required className="input" value={editYear} onChange={e => setEditYear(e.target.value)}><option>First Year</option><option>Second Year</option><option>Third Year</option><option>Fourth Year</option></select>
             <button type="submit" className="btn-submit">Save Changes</button>
+          </form>
+        </Modal>
+      )}
+
+      {showTaskModal && (
+        <Modal title="Create Study Task" onClose={() => setShowTaskModal(false)}>
+          <form onSubmit={(e) => { e.preventDefault(); handleSaveTask(); }} className="space-y-4">
+            <input required type="text" placeholder="Task title" className="input" value={taskTitle} onChange={e => setTaskTitle(e.target.value)} />
+            <textarea required placeholder="Task details" className="input h-24" value={taskContent} onChange={e => setTaskContent(e.target.value)} />
+            <button type="submit" className="btn-submit">Save Task</button>
           </form>
         </Modal>
       )}
