@@ -1,9 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { User, UserRole, University } from '../types';
-import { authApi, universitiesApi } from '../services/supabaseApi';
+import { api } from '../services/api';
 import Logo from './Logo';
-import { LogIn, UserPlus, Mail, Lock, School, Calendar, ChevronRight, Loader } from 'lucide-react';
+import { LogIn, UserPlus, Mail, Lock, School, Calendar, Loader2 } from 'lucide-react';
 
 interface AuthProps {
   onLogin: (user: User) => void;
@@ -20,11 +20,11 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
   const [universities, setUniversities] = useState<University[]>([]);
 
   useEffect(() => {
-    const fetchUniversities = async () => {
-      const unis = await universitiesApi.getUniversities();
-      setUniversities(unis);
+    const loadUnis = async () => {
+      const data = await api.getUniversities();
+      setUniversities(data);
     };
-    fetchUniversities();
+    loadUnis();
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -33,45 +33,32 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
     setLoading(true);
 
     try {
-      if (!email || !password) {
-        setError('Email and password are required.');
-        setLoading(false);
-        return;
-      }
-
       if (isLogin) {
-        const { user, error } = await authApi.login(email, password);
-        if (error) {
-          setError('Invalid email or password.');
-          setLoading(false);
-          return;
-        }
+        const user = await api.login(email, password);
         if (user) {
+          api.setCurrentUser(user);
           onLogin(user);
+        } else {
+          setError('Invalid credentials. Please try again.');
         }
       } else {
-        if (!school) {
-          setError('Please select your institution.');
+        if (!email || !password || !school) {
+          setError('All fields are required.');
           setLoading(false);
           return;
         }
-        if (!year) {
-          setError('Please select your year.');
-          setLoading(false);
-          return;
-        }
-        const { user, error } = await authApi.register(email, password, school, year);
-        if (error) {
-          setError('Registration failed. Email may already exist.');
-          setLoading(false);
-          return;
-        }
-        if (user) {
-          onLogin(user);
-        }
+        const newUser = await api.register({
+          email,
+          password,
+          school,
+          year,
+          role: 'student' as UserRole
+        });
+        api.setCurrentUser(newUser);
+        onLogin(newUser);
       }
     } catch (err: any) {
-      setError(err.message || 'An error occurred. Please try again.');
+      setError(err.message || 'An error occurred during authentication.');
     } finally {
       setLoading(false);
     }
@@ -79,7 +66,6 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-slate-50 relative overflow-hidden">
-      {/* Background Decor */}
       <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-100/50 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/2" />
       <div className="absolute bottom-0 left-0 w-96 h-96 bg-blue-100/50 rounded-full blur-[100px] translate-y-1/2 -translate-x-1/2" />
 
@@ -102,47 +88,41 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
 
             <div className="relative">
               <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" />
-              <input type="email" placeholder="Email Address" className="input-auth" value={email} onChange={(e) => setEmail(e.target.value)} required />
+              <input type="email" placeholder="Email Address" className="input-auth" value={email} onChange={(e) => setEmail(e.target.value)} required disabled={loading} />
             </div>
 
             <div className="relative">
               <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" />
-              <input type="password" placeholder="Password" className="input-auth" value={password} onChange={(e) => setPassword(e.target.value)} required />
+              <input type="password" placeholder="Password" className="input-auth" value={password} onChange={(e) => setPassword(e.target.value)} required disabled={loading} />
             </div>
 
             {!isLogin && (
-              <div className="space-y-4">
+              <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
                 <div className="relative">
                   <School className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" />
-                  <select required className="input-auth appearance-none font-bold" value={school} onChange={(e) => setSchool(e.target.value)}>
-                    <option value="">Select Institution...</option>
-                    {universities.length === 0 ? (
-                      <option disabled>Loading institutions...</option>
-                    ) : (
-                      universities.map(u => <option key={u.id} value={u.name}>{u.name}</option>)
-                    )}
+                  <select required className="input-auth appearance-none font-bold" value={school} onChange={(e) => setSchool(e.target.value)} disabled={loading}>
+                    <option value="">Institution...</option>
+                    {universities.map(u => <option key={u.id} value={u.name}>{u.name}</option>)}
                   </select>
                 </div>
 
-                <div className="animate-in fade-in slide-in-from-top-2">
-                  <div className="relative">
-                    <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" />
-                    <select className="input-auth appearance-none font-bold" value={year} onChange={(e) => setYear(e.target.value)}>
-                      <option>First Year</option><option>Second Year</option><option>Third Year</option><option>Fourth Year</option>
-                    </select>
-                  </div>
+                <div className="relative">
+                  <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" />
+                  <select className="input-auth appearance-none font-bold" value={year} onChange={(e) => setYear(e.target.value)} disabled={loading}>
+                    <option>First Year</option><option>Second Year</option><option>Third Year</option><option>Fourth Year</option>
+                  </select>
                 </div>
               </div>
             )}
 
-            <button type="submit" disabled={loading} className="w-full py-4 bg-indigo-600 text-white font-black text-lg rounded-2xl hover:bg-indigo-700 disabled:bg-indigo-400 shadow-lg transition-all flex items-center justify-center gap-2 mt-2">
-              {loading ? <Loader size={20} className="animate-spin" /> : (isLogin ? <LogIn size={20} /> : <UserPlus size={20} />)}
+            <button type="submit" disabled={loading} className="w-full py-4 bg-indigo-600 text-white font-black text-lg rounded-2xl hover:bg-indigo-700 shadow-lg transition-all flex items-center justify-center gap-2 mt-2 disabled:opacity-70">
+              {loading ? <Loader2 size={20} className="animate-spin" /> : (isLogin ? <LogIn size={20} /> : <UserPlus size={20} />)}
               <span>{loading ? 'Processing...' : (isLogin ? 'Sign In' : 'Join Now')}</span>
             </button>
           </form>
 
           <div className="mt-8 text-center">
-            <button onClick={() => { setIsLogin(!isLogin); setError(''); }} className="text-slate-400 text-[10px] font-black uppercase tracking-widest hover:text-indigo-600 transition-colors">
+            <button disabled={loading} onClick={() => { setIsLogin(!isLogin); setError(''); }} className="text-slate-400 text-[10px] font-black uppercase tracking-widest hover:text-indigo-600 transition-colors">
               {isLogin ? "Need an account? Sign up" : "Existing member? Log in"}
             </button>
           </div>

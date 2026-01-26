@@ -1,326 +1,193 @@
 
-import { User, StudyMaterial, TaskItem, PaymentRecord, University, Note, ScheduleItem, StudySession, AnalyticsData } from '../types';
+import { createClient } from '@supabase/supabase-js';
+import { User, StudyMaterial, TaskItem, PaymentRecord, University, UserRole } from '../types';
 
-// Mock DB keys
-const STORAGE_KEYS = {
-  USERS: 'studypal_users',
-  MATERIALS: 'studypal_materials',
-  TASKS: 'studypal_tasks',
-  PAYMENTS: 'studypal_payments',
-  CURRENT_USER: 'studypal_session',
-  UNIVERSITIES: 'studypal_universities',
-  OFFLINE_STORAGE: 'studypal_offline_v1',
-  NOTES: 'studypal_notes',
-  SCHEDULE: 'studypal_schedule',
-  STUDY_SESSIONS: 'studypal_study_sessions'
-};
+// Supabase Configuration
+// Note: In this environment, these should be provided via environment variables.
+const SUPABASE_URL = (process.env as any).SUPABASE_URL || '';
+const SUPABASE_ANON_KEY = (process.env as any).SUPABASE_ANON_KEY || '';
 
-const getFromStorage = <T,>(key: string, defaultValue: T): T => {
-  const data = localStorage.getItem(key);
-  return data ? JSON.parse(data) : defaultValue;
-};
+const supabase = SUPABASE_URL ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 
-const saveToStorage = (key: string, data: any) => {
-  localStorage.setItem(key, JSON.stringify(data));
-};
+// Fallback session storage for the current logged-in user
+const SESSION_KEY = 'studypal_session';
 
 export const api = {
-  // Auth
-  getCurrentUser: (): User | null => getFromStorage(STORAGE_KEYS.CURRENT_USER, null),
-  setCurrentUser: (user: User | null) => saveToStorage(STORAGE_KEYS.CURRENT_USER, user),
+  // Auth Session (Local only for persistence)
+  getCurrentUser: (): User | null => {
+    const data = localStorage.getItem(SESSION_KEY);
+    return data ? JSON.parse(data) : null;
+  },
+  setCurrentUser: (user: User | null) => {
+    if (user) localStorage.setItem(SESSION_KEY, JSON.stringify(user));
+    else localStorage.removeItem(SESSION_KEY);
+  },
   
-  register: (userData: Omit<User, 'id'>): User => {
-    const users = getFromStorage<User[]>(STORAGE_KEYS.USERS, []);
-    const newUser = { ...userData, id: Math.random().toString(36).substr(2, 9) };
-    users.push(newUser);
-    saveToStorage(STORAGE_KEYS.USERS, users);
-    return newUser;
+  // Users
+  register: async (userData: Omit<User, 'id'>): Promise<User> => {
+    if (!supabase) throw new Error("Supabase not configured");
+    const { data, error } = await supabase
+      .from('users')
+      .insert([userData])
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
   },
 
-  login: (email: string, pass: string): User | null => {
-    const users = getFromStorage<User[]>(STORAGE_KEYS.USERS, []);
+  login: async (email: string, pass: string): Promise<User | null> => {
+    if (!supabase) throw new Error("Supabase not configured");
     
-    // Default admin check
+    // Static Admin Override
     if (email === 'levykirui093@gmail.com' && pass === 'levy4427') {
-        const admin = { id: 'admin-0', email, role: 'admin', school: 'System', year: 'Master' } as User;
-        return admin;
+        return { id: 'admin-0', email, role: 'admin', school: 'System', year: 'Master' } as User;
     }
+
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('email', email)
+      .eq('password', pass)
+      .single();
     
-    return users.find(u => u.email === email && u.password === pass) || null;
+    if (error) return null;
+    return data;
+  },
+
+  getUsers: async (): Promise<User[]> => {
+    if (!supabase) return [];
+    const { data, error } = await supabase.from('users').select('*');
+    return error ? [] : data;
+  },
+
+  promoteToAdmin: async (userId: string): Promise<void> => {
+    if (!supabase) return;
+    await supabase.from('users').update({ role: 'admin' }).eq('id', userId);
   },
 
   // Universities
-  getUniversities: (): University[] => getFromStorage(STORAGE_KEYS.UNIVERSITIES, []),
-  addUniversity: (name: string) => {
-    const unis = getFromStorage<University[]>(STORAGE_KEYS.UNIVERSITIES, []);
-    const newUni = { id: Math.random().toString(36).substr(2, 9), name };
-    unis.push(newUni);
-    saveToStorage(STORAGE_KEYS.UNIVERSITIES, unis);
-    return newUni;
+  getUniversities: async (): Promise<University[]> => {
+    if (!supabase) return [];
+    const { data, error } = await supabase.from('universities').select('*').order('name');
+    return error ? [] : data;
   },
-  deleteUniversity: (id: string) => {
-    const unis = getFromStorage<University[]>(STORAGE_KEYS.UNIVERSITIES, []);
-    saveToStorage(STORAGE_KEYS.UNIVERSITIES, unis.filter(u => u.id !== id));
+
+  addUniversity: async (name: string): Promise<void> => {
+    if (!supabase) return;
+    await supabase.from('universities').insert([{ name }]);
+  },
+
+  deleteUniversity: async (id: string): Promise<void> => {
+    if (!supabase) return;
+    await supabase.from('universities').delete().eq('id', id);
   },
 
   // Materials
-  getMaterials: (): StudyMaterial[] => getFromStorage(STORAGE_KEYS.MATERIALS, []),
-  addMaterial: (material: Omit<StudyMaterial, 'id' | 'createdAt'>) => {
-    const items = getFromStorage<StudyMaterial[]>(STORAGE_KEYS.MATERIALS, []);
-    const newItem = { 
-      ...material, 
-      id: Math.random().toString(36).substr(2, 9),
-      createdAt: new Date().toISOString()
-    };
-    items.push(newItem);
-    saveToStorage(STORAGE_KEYS.MATERIALS, items);
-    return newItem;
-  },
-  updateMaterial: (id: string, data: Partial<StudyMaterial>) => {
-    const items = getFromStorage<StudyMaterial[]>(STORAGE_KEYS.MATERIALS, []);
-    const index = items.findIndex(i => i.id === id);
-    if (index !== -1) {
-      items[index] = { ...items[index], ...data };
-      saveToStorage(STORAGE_KEYS.MATERIALS, items);
-    }
-  },
-  deleteMaterial: (id: string) => {
-    const items = getFromStorage<StudyMaterial[]>(STORAGE_KEYS.MATERIALS, []);
-    saveToStorage(STORAGE_KEYS.MATERIALS, items.filter(i => i.id !== id));
+  getMaterials: async (): Promise<StudyMaterial[]> => {
+    if (!supabase) return [];
+    const { data, error } = await supabase.from('materials').select('*').order('created_at', { ascending: false });
+    return error ? [] : data;
   },
 
-  // In-App (Offline) Storage
-  saveOffline: (userId: string, material: StudyMaterial) => {
-    const offline = getFromStorage<Record<string, StudyMaterial[]>>(STORAGE_KEYS.OFFLINE_STORAGE, {});
-    if (!offline[userId]) offline[userId] = [];
-    if (!offline[userId].some(m => m.id === material.id)) {
-      offline[userId].push(material);
-      saveToStorage(STORAGE_KEYS.OFFLINE_STORAGE, offline);
-    }
+  addMaterial: async (material: Omit<StudyMaterial, 'id' | 'createdAt'>): Promise<void> => {
+    if (!supabase) return;
+    await supabase.from('materials').insert([{
+      ...material,
+      created_at: new Date().toISOString()
+    }]);
   },
-  getOffline: (userId: string): StudyMaterial[] => {
-    const offline = getFromStorage<Record<string, StudyMaterial[]>>(STORAGE_KEYS.OFFLINE_STORAGE, {});
-    return offline[userId] || [];
+
+  updateMaterial: async (id: string, data: Partial<StudyMaterial>): Promise<void> => {
+    if (!supabase) return;
+    await supabase.from('materials').update(data).eq('id', id);
   },
-  removeOffline: (userId: string, materialId: string) => {
-    const offline = getFromStorage<Record<string, StudyMaterial[]>>(STORAGE_KEYS.OFFLINE_STORAGE, {});
-    if (offline[userId]) {
-      offline[userId] = offline[userId].filter(m => m.id !== materialId);
-      saveToStorage(STORAGE_KEYS.OFFLINE_STORAGE, offline);
-    }
+
+  deleteMaterial: async (id: string): Promise<void> => {
+    if (!supabase) return;
+    await supabase.from('materials').delete().eq('id', id);
   },
 
   // Tasks
-  getTasks: (userId: string): TaskItem[] => {
-    const all = getFromStorage<TaskItem[]>(STORAGE_KEYS.TASKS, []);
-    return all.filter(t => t.userId === userId);
+  getTasks: async (userId: string): Promise<TaskItem[]> => {
+    if (!supabase) return [];
+    const { data, error } = await supabase.from('tasks').select('*').eq('userId', userId);
+    return error ? [] : data;
   },
-  saveTask: (task: Omit<TaskItem, 'id'>) => {
-    const all = getFromStorage<TaskItem[]>(STORAGE_KEYS.TASKS, []);
-    const newTask = { ...task, id: Math.random().toString(36).substr(2, 9) };
-    all.push(newTask);
-    saveToStorage(STORAGE_KEYS.TASKS, all);
-    return newTask;
+
+  saveTask: async (task: Omit<TaskItem, 'id'>): Promise<void> => {
+    if (!supabase) return;
+    await supabase.from('tasks').insert([task]);
   },
-  deleteTask: (id: string) => {
-    const all = getFromStorage<TaskItem[]>(STORAGE_KEYS.TASKS, []);
-    saveToStorage(STORAGE_KEYS.TASKS, all.filter(t => t.id !== id));
+
+  deleteTask: async (id: string): Promise<void> => {
+    if (!supabase) return;
+    await supabase.from('tasks').delete().eq('id', id);
   },
 
   // Payments
-  getPayments: (): PaymentRecord[] => getFromStorage(STORAGE_KEYS.PAYMENTS, []),
-  isMpesaCodeUsed: (code: string): boolean => {
-    const payments = getFromStorage<PaymentRecord[]>(STORAGE_KEYS.PAYMENTS, []);
-    return payments.some(p => p.mpesaCode === code);
-  },
-  recordPayment: (userId: string, email: string, amount: number, phone: string, mpesaCode: string) => {
-    const payments = getFromStorage<PaymentRecord[]>(STORAGE_KEYS.PAYMENTS, []);
-    const newPayment: PaymentRecord = {
-        id: Math.random().toString(36).substr(2, 9),
-        userId,
-        userEmail: email,
-        amount,
-        phoneNumber: phone,
-        mpesaCode,
-        status: 'success',
-        createdAt: new Date().toISOString()
-    };
-    payments.push(newPayment);
-    saveToStorage(STORAGE_KEYS.PAYMENTS, payments);
-    return newPayment;
+  getPayments: async (): Promise<PaymentRecord[]> => {
+    if (!supabase) return [];
+    const { data, error } = await supabase.from('payments').select('*').order('created_at', { ascending: false });
+    return error ? [] : data;
   },
 
-  // Users Management
-  getUsers: (): User[] => getFromStorage(STORAGE_KEYS.USERS, []),
-  updateUserSubscription: (userId: string, months: number) => {
-    const users = getFromStorage<User[]>(STORAGE_KEYS.USERS, []);
+  recordPayment: async (payment: Omit<PaymentRecord, 'id' | 'createdAt' | 'status'>): Promise<void> => {
+    if (!supabase) return;
+    await supabase.from('payments').insert([{
+      ...payment,
+      status: 'success',
+      created_at: new Date().toISOString()
+    }]);
+  },
+
+  // Profile Management
+  updateProfile: async (userId: string, data: Partial<User>): Promise<void> => {
+    if (!supabase) return;
+    await supabase.from('users').update(data).eq('id', userId);
+    
+    // Update local session if it's the current user
+    const current = api.getCurrentUser();
+    if (current && current.id === userId) {
+      api.setCurrentUser({ ...current, ...data });
+    }
+  },
+
+  updateUserSubscription: async (userId: string, months: number): Promise<void> => {
+    if (!supabase) return;
     const now = new Date();
     const expiry = new Date(now.setMonth(now.getMonth() + months)).toISOString();
-    const updated = users.map(u => u.id === userId ? { ...u, subscriptionExpiry: expiry } : u);
-    saveToStorage(STORAGE_KEYS.USERS, updated);
+    await supabase.from('users').update({ subscriptionExpiry: expiry }).eq('id', userId);
     
     const current = api.getCurrentUser();
     if (current && current.id === userId) {
-        api.setCurrentUser({ ...current, subscriptionExpiry: expiry });
+      api.setCurrentUser({ ...current, subscriptionExpiry: expiry });
     }
   },
 
-  promoteToAdmin: (userId: string) => {
-    const users = getFromStorage<User[]>(STORAGE_KEYS.USERS, []);
-    const updated = users.map(u => u.id === userId ? { ...u, role: 'admin' as const } : u);
-    saveToStorage(STORAGE_KEYS.USERS, updated);
-  },
-
-  addAdmin: (email: string, pass: string) => {
-    const users = getFromStorage<User[]>(STORAGE_KEYS.USERS, []);
-    const newAdmin: User = {
-      id: Math.random().toString(36).substr(2, 9),
-      email,
-      password: pass,
-      role: 'admin',
-      school: 'Administration',
-      year: 'N/A'
-    };
-    users.push(newAdmin);
-    saveToStorage(STORAGE_KEYS.USERS, users);
-    return newAdmin;
-  },
-
-  updateProfile: (userId: string, data: Partial<User>) => {
-    const users = getFromStorage<User[]>(STORAGE_KEYS.USERS, []);
-    const updated = users.map(u => u.id === userId ? { ...u, ...data } : u);
-    saveToStorage(STORAGE_KEYS.USERS, updated);
-    const current = api.getCurrentUser();
-    if (current && current.id === userId) {
-        api.setCurrentUser({ ...current, ...data });
+  // In-App (Offline) Storage - Still uses LocalStorage as it's for "offline" access
+  saveOffline: (userId: string, material: StudyMaterial) => {
+    const key = `studypal_offline_${userId}`;
+    const data = localStorage.getItem(key);
+    const offline: StudyMaterial[] = data ? JSON.parse(data) : [];
+    if (!offline.some(m => m.id === material.id)) {
+      offline.push(material);
+      localStorage.setItem(key, JSON.stringify(offline));
     }
   },
 
-  // Search
-  searchMaterials: (query: string): StudyMaterial[] => {
-    const materials = getFromStorage<StudyMaterial[]>(STORAGE_KEYS.MATERIALS, []);
-    const lowerQuery = query.toLowerCase();
-    return materials.filter(m => 
-      m.title.toLowerCase().includes(lowerQuery) ||
-      m.description.toLowerCase().includes(lowerQuery) ||
-      m.school.toLowerCase().includes(lowerQuery) ||
-      m.type.toLowerCase().includes(lowerQuery)
-    );
+  getOffline: (userId: string): StudyMaterial[] => {
+    const key = `studypal_offline_${userId}`;
+    const data = localStorage.getItem(key);
+    return data ? JSON.parse(data) : [];
   },
 
-  // Notes
-  addNote: (userId: string, materialId: string, content: string): Note => {
-    const notes = getFromStorage<Note[]>(STORAGE_KEYS.NOTES, []);
-    const newNote: Note = {
-      id: Math.random().toString(36).substr(2, 9),
-      userId,
-      materialId,
-      content,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-    notes.push(newNote);
-    saveToStorage(STORAGE_KEYS.NOTES, notes);
-    return newNote;
-  },
-
-  getNotes: (userId: string, materialId: string): Note[] => {
-    const notes = getFromStorage<Note[]>(STORAGE_KEYS.NOTES, []);
-    return notes.filter(n => n.userId === userId && n.materialId === materialId);
-  },
-
-  updateNote: (noteId: string, content: string) => {
-    const notes = getFromStorage<Note[]>(STORAGE_KEYS.NOTES, []);
-    const index = notes.findIndex(n => n.id === noteId);
-    if (index !== -1) {
-      notes[index] = { ...notes[index], content, updatedAt: new Date().toISOString() };
-      saveToStorage(STORAGE_KEYS.NOTES, notes);
+  removeOffline: (userId: string, materialId: string) => {
+    const key = `studypal_offline_${userId}`;
+    const data = localStorage.getItem(key);
+    if (data) {
+      const offline: StudyMaterial[] = JSON.parse(data);
+      const filtered = offline.filter(m => m.id !== materialId);
+      localStorage.setItem(key, JSON.stringify(filtered));
     }
-  },
-
-  deleteNote: (noteId: string) => {
-    const notes = getFromStorage<Note[]>(STORAGE_KEYS.NOTES, []);
-    saveToStorage(STORAGE_KEYS.NOTES, notes.filter(n => n.id !== noteId));
-  },
-
-  // Schedule
-  addScheduleItem: (userId: string, item: Omit<ScheduleItem, 'id' | 'createdAt'>): ScheduleItem => {
-    const schedule = getFromStorage<ScheduleItem[]>(STORAGE_KEYS.SCHEDULE, []);
-    const newItem: ScheduleItem = {
-      ...item,
-      id: Math.random().toString(36).substr(2, 9),
-      createdAt: new Date().toISOString()
-    };
-    schedule.push(newItem);
-    saveToStorage(STORAGE_KEYS.SCHEDULE, schedule);
-    return newItem;
-  },
-
-  getSchedule: (userId: string): ScheduleItem[] => {
-    const schedule = getFromStorage<ScheduleItem[]>(STORAGE_KEYS.SCHEDULE, []);
-    return schedule.filter(s => s.userId === userId);
-  },
-
-  updateScheduleItem: (itemId: string, data: Partial<ScheduleItem>) => {
-    const schedule = getFromStorage<ScheduleItem[]>(STORAGE_KEYS.SCHEDULE, []);
-    const index = schedule.findIndex(s => s.id === itemId);
-    if (index !== -1) {
-      schedule[index] = { ...schedule[index], ...data };
-      saveToStorage(STORAGE_KEYS.SCHEDULE, schedule);
-    }
-  },
-
-  deleteScheduleItem: (itemId: string) => {
-    const schedule = getFromStorage<ScheduleItem[]>(STORAGE_KEYS.SCHEDULE, []);
-    saveToStorage(STORAGE_KEYS.SCHEDULE, schedule.filter(s => s.id !== itemId));
-  },
-
-  // Study Sessions & Analytics
-  startStudySession: (userId: string, materialId: string): StudySession => {
-    const sessions = getFromStorage<StudySession[]>(STORAGE_KEYS.STUDY_SESSIONS, []);
-    const newSession: StudySession = {
-      id: Math.random().toString(36).substr(2, 9),
-      userId,
-      materialId,
-      duration: 0,
-      startedAt: new Date().toISOString()
-    };
-    sessions.push(newSession);
-    saveToStorage(STORAGE_KEYS.STUDY_SESSIONS, sessions);
-    return newSession;
-  },
-
-  endStudySession: (sessionId: string): void => {
-    const sessions = getFromStorage<StudySession[]>(STORAGE_KEYS.STUDY_SESSIONS, []);
-    const index = sessions.findIndex(s => s.id === sessionId);
-    if (index !== -1) {
-      const session = sessions[index];
-      const duration = Math.floor((new Date().getTime() - new Date(session.startedAt).getTime()) / 60000); // minutes
-      sessions[index] = { ...session, duration, completedAt: new Date().toISOString() };
-      saveToStorage(STORAGE_KEYS.STUDY_SESSIONS, sessions);
-    }
-  },
-
-  getAnalytics: (userId: string): AnalyticsData => {
-    const sessions = getFromStorage<StudySession[]>(STORAGE_KEYS.STUDY_SESSIONS, []);
-    const userSessions = sessions.filter(s => s.userId === userId && s.completedAt);
-    
-    const totalStudyTime = userSessions.reduce((sum, s) => sum + s.duration, 0);
-    const sessionsCount = userSessions.length;
-    const averageSessionDuration = sessionsCount > 0 ? Math.round(totalStudyTime / sessionsCount) : 0;
-    
-    const lastSession = userSessions.length > 0 
-      ? new Date(Math.max(...userSessions.map(s => new Date(s.completedAt || '').getTime()))).toISOString()
-      : new Date().toISOString();
-
-    return {
-      userId,
-      totalStudyTime,
-      sessionsCount,
-      materialsViewed: 0, // Can be enhanced
-      averageSessionDuration,
-      lastActiveDate: lastSession
-    };
   }
-
 };
