@@ -165,6 +165,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
     }
   };
 
+  const handleDeleteUniversity = async (uniId: string) => {
+    if (confirm('Delete this university?')) {
+      setLoading(true);
+      await api.deleteUniversity(uniId);
+      await refreshData();
+    }
+  };
+
   const getFormatIcon = (ext: string) => {
     switch(ext) {
       case 'pdf': return <FileText className="text-red-500" />;
@@ -257,6 +265,23 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
                     ))}
                   </tbody>
                 </table>
+              </div>
+            )}
+
+            {activeTab === 'universities' && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {universities.map(uni => (
+                  <div key={uni.id} className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm hover:shadow-lg transition-all">
+                    <div className="flex items-start justify-between mb-4">
+                      <div>
+                        <h3 className="font-bold text-slate-800 text-lg">{uni.name}</h3>
+                        <p className="text-sm text-slate-500">{uni.location || 'Location TBD'}</p>
+                      </div>
+                      <button onClick={() => handleDeleteUniversity(uni.id)} className="p-2 text-slate-300 hover:text-red-500 bg-slate-50 rounded-lg"><Trash2 size={16} /></button>
+                    </div>
+                  </div>
+                ))}
+                {universities.length === 0 && <p className="text-slate-400">No universities yet</p>}
               </div>
             )}
           </>
