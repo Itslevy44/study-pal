@@ -11,10 +11,13 @@ self.addEventListener('install', (event) => {
   console.log('Service Worker installing...');
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      console.log('Caching assets');
+      console.log('Caching core assets');
       return cache.addAll(ASSETS).catch((error) => {
         console.warn('Cache addAll failed:', error);
+        // Don't fail installation if some assets can't be cached
       });
+    }).then(() => {
+      console.log('Installation complete');
     })
   );
   self.skipWaiting();
@@ -32,6 +35,8 @@ self.addEventListener('activate', (event) => {
             return caches.delete(cacheName);
           })
       );
+    }).then(() => {
+      console.log('Activation complete');
     })
   );
   self.clients.claim();
@@ -39,7 +44,6 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   const { request } = event;
-  const url = new URL(request.url);
 
   if (request.method !== 'GET') {
     return;
@@ -51,17 +55,23 @@ self.addEventListener('fetch', (event) => {
         console.log('Serving from cache:', request.url);
         return response;
       }
+      
       return fetch(request).then((response) => {
+        // Don't cache non-successful responses
         if (!response || response.status !== 200 || response.type === 'error') {
           return response;
         }
+
+        // Clone the response before caching
         const responseToCache = response.clone();
         caches.open(RUNTIME_CACHE).then((cache) => {
           cache.put(request, responseToCache);
         });
+
         return response;
       }).catch(() => {
-        console.log('Offline - returning fallback');
+        console.log('Fetch failed, attempting offline fallback:', request.url);
+        // Try to return cached version or fallback to index.html
         return caches.match('/index.html');
       });
     })

@@ -24,9 +24,16 @@ const App: React.FC = () => {
 
     // Handle install prompt
     const handleBeforeInstallPrompt = (e: Event) => {
+      console.log('beforeinstallprompt event fired');
       e.preventDefault();
       setDeferredPrompt(e);
       setShowInstallPrompt(true);
+    };
+
+    const handleAppInstalled = () => {
+      console.log('PWA was installed');
+      setShowInstallPrompt(false);
+      setDeferredPrompt(null);
     };
 
     // Strict Security Measures to discourage screenshots and data theft
@@ -73,6 +80,7 @@ const App: React.FC = () => {
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('dragstart', handleDragStart);
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener('appinstalled', handleAppInstalled);
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
@@ -82,6 +90,7 @@ const App: React.FC = () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('dragstart', handleDragStart);
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('appinstalled', handleAppInstalled);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, []);
@@ -93,11 +102,26 @@ const App: React.FC = () => {
 
   const handleInstallClick = async () => {
     if (deferredPrompt) {
-      deferredPrompt.prompt();
-      const { outcome } = await deferredPrompt.userChoice;
-      console.log(`User response to the install prompt: ${outcome}`);
-      setDeferredPrompt(null);
-      setShowInstallPrompt(false);
+      try {
+        // Show the install prompt
+        await deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        console.log(`User response to the install prompt: ${outcome}`);
+        
+        if (outcome === 'accepted') {
+          console.log('PWA installed successfully');
+        } else {
+          console.log('User dismissed the install prompt');
+        }
+        
+        // Clear the deferred prompt
+        setDeferredPrompt(null);
+        setShowInstallPrompt(false);
+      } catch (error) {
+        console.error('Installation error:', error);
+      }
+    } else {
+      console.warn('No deferred prompt available');
     }
   };
 
