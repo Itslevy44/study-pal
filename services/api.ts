@@ -43,15 +43,24 @@ export const api = {
         return { id: 'admin-0', email, role: 'admin', school: 'System', year: 'Master' } as User;
     }
 
-    const { data, error } = await supabase
+    // For regular users, use Supabase Auth
+    if (!supabase) return null;
+    
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password: pass,
+    });
+    
+    if (error) return null;
+    
+    // Get user profile from database
+    const { data: userData, error: userError } = await supabase
       .from('users')
       .select('*')
       .eq('email', email)
-      .eq('password', pass)
       .single();
     
-    if (error) return null;
-    return data;
+    return userError ? null : userData;
   },
 
   getUsers: async (): Promise<User[]> => {
