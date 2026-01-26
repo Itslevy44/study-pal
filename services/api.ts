@@ -3,11 +3,10 @@ import { createClient } from '@supabase/supabase-js';
 import { User, StudyMaterial, TaskItem, PaymentRecord, University, UserRole } from '../types';
 
 // Supabase Configuration
-// Note: In this environment, these should be provided via environment variables.
-const SUPABASE_URL = (process.env as any).SUPABASE_URL || '';
-const SUPABASE_ANON_KEY = (process.env as any).SUPABASE_ANON_KEY || '';
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
-const supabase = SUPABASE_URL ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+const supabase = SUPABASE_URL && SUPABASE_ANON_KEY ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 
 // Fallback session storage for the current logged-in user
 const SESSION_KEY = 'studypal_session';
