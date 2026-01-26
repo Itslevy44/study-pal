@@ -220,7 +220,10 @@ export const api = {
       user_id: task.userId,
       title: task.title,
       content: task.content,
-      type: task.type
+      type: task.type,
+      priority: task.priority || 'medium',
+      due_date: task.dueDate || null,
+      completed: task.completed || false
     }]);
     if (error) {
       console.error('Error saving task:', error);

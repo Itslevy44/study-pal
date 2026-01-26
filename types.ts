@@ -38,6 +38,10 @@ export interface TaskItem {
   title: string;
   content: string;
   date?: string;
+  priority?: 'low' | 'medium' | 'high';
+  dueDate?: string;
+  completed?: boolean;
+  createdAt?: string;
 }
 
 export interface PaymentRecord {

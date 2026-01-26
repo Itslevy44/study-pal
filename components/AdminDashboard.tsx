@@ -48,6 +48,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
   
   const [currentMaterialId, setCurrentMaterialId] = useState<string | null>(null);
   const [editingUniId, setEditingUniId] = useState<string | null>(null);
+  const [userSearch, setUserSearch] = useState('');
+  const [materialSearch, setMaterialSearch] = useState('');
   const [newTitle, setNewTitle] = useState('');
   const [newType, setNewType] = useState<'note' | 'past-paper'>('note');
   const [newSchool, setNewSchool] = useState('');
@@ -317,25 +319,32 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
             )}
 
             {activeTab === 'users' && (
-              <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm">
-                <table className="w-full text-left text-sm">
-                  <thead className="bg-slate-50 border-b border-slate-200"><tr className="text-[10px] font-black uppercase text-slate-400 tracking-widest"><th className="px-6 py-4">User</th><th className="px-6 py-4">School</th><th className="px-6 py-4">Status</th><th className="px-6 py-4 text-right">Actions</th></tr></thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {users.map(u => (
-                      <tr key={u.id}>
-                        <td className="px-6 py-4 font-bold">{u.email}</td>
-                        <td className="px-6 py-4">{u.school}</td>
-                        <td className="px-6 py-4">{u.subscriptionExpiry ? <span className="text-green-600 font-bold">Premium</span> : 'Basic'}</td>
-                        <td className="px-6 py-4 text-right">
-                          <div className="flex justify-end gap-2">
-                            <button onClick={() => grantAccess(u.id)} className="px-3 py-1 bg-green-50 text-green-600 rounded text-[10px] font-black">GRANT</button>
-                            {u.role !== 'admin' && <button onClick={() => promoteUser(u.id)} className="px-3 py-1 bg-indigo-50 text-indigo-600 rounded text-[10px] font-black">ADMIN</button>}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="space-y-6">
+                <div className="relative">
+                  <input type="text" placeholder="Search by email or school..." className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm" value={userSearch} onChange={e => setUserSearch(e.target.value)} />
+                </div>
+                <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm">
+                  <table className="w-full text-left text-sm">
+                    <thead className="bg-slate-50 border-b border-slate-200"><tr className="text-[10px] font-black uppercase text-slate-400 tracking-widest"><th className="px-6 py-4">User</th><th className="px-6 py-4">School</th><th className="px-6 py-4">Year</th><th className="px-6 py-4">Status</th><th className="px-6 py-4 text-right">Actions</th></tr></thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {users.filter(u => u.email.toLowerCase().includes(userSearch.toLowerCase()) || u.school.toLowerCase().includes(userSearch.toLowerCase())).map(u => (
+                        <tr key={u.id}>
+                          <td className="px-6 py-4 font-bold text-sm">{u.email}</td>
+                          <td className="px-6 py-4 text-sm">{u.school}</td>
+                          <td className="px-6 py-4 text-sm">{u.year}</td>
+                          <td className="px-6 py-4"><span className={`text-xs font-black px-2 py-1 rounded ${u.subscriptionExpiry ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'}`}>{u.subscriptionExpiry ? 'Premium' : 'Basic'}</span></td>
+                          <td className="px-6 py-4 text-right">
+                            <div className="flex justify-end gap-2">
+                              <button onClick={() => grantAccess(u.id)} className="px-3 py-1 bg-green-50 text-green-600 rounded text-[10px] font-black hover:bg-green-100">GRANT</button>
+                              {u.role !== 'admin' && <button onClick={() => promoteUser(u.id)} className="px-3 py-1 bg-indigo-50 text-indigo-600 rounded text-[10px] font-black hover:bg-indigo-100">ADMIN</button>}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {users.filter(u => u.email.toLowerCase().includes(userSearch.toLowerCase()) || u.school.toLowerCase().includes(userSearch.toLowerCase())).length === 0 && <div className="text-center py-12 text-slate-400">No users match your search</div>}
+                </div>
               </div>
             )}
 

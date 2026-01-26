@@ -45,6 +45,9 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, onR
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'note' | 'past-paper'>('all');
+  const [filterSchool, setFilterSchool] = useState<string>('all');
+  const [filterYear, setFilterYear] = useState<string>('all');
+  const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'title' | 'school'>('newest');
   const [universities, setUniversities] = useState<University[]>([]);
   const [query, setQuery] = useState('');
   const [aiResponse, setAiResponse] = useState('');
@@ -52,6 +55,8 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, onR
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [taskTitle, setTaskTitle] = useState('');
   const [taskContent, setTaskContent] = useState('');
+  const [taskPriority, setTaskPriority] = useState<'low' | 'medium' | 'high'>('medium');
+  const [taskDueDate, setTaskDueDate] = useState('');
   const [showPayment, setShowPayment] = useState(false);
   const [viewingMaterial, setViewingMaterial] = useState<StudyMaterial | null>(null);
   const [showEditProfile, setShowEditProfile] = useState(false);
@@ -90,8 +95,19 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, onR
 
   const handleSaveTask = async () => {
     if (!taskTitle || !taskContent) return;
-    await api.saveTask({ userId: user.id, title: taskTitle, content: taskContent, type: 'note' });
-    setTaskTitle(''); setTaskContent(''); setShowTaskModal(false);
+    await api.saveTask({ 
+      userId: user.id, 
+      title: taskTitle, 
+      content: taskContent, 
+      type: 'note',
+      priority: taskPriority,
+      dueDate: taskDueDate || undefined
+    });
+    setTaskTitle(''); 
+    setTaskContent(''); 
+    setTaskPriority('medium');
+    setTaskDueDate('');
+    setShowTaskModal(false);
     await refreshData();
   };
 
@@ -110,12 +126,34 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, onR
     if (onRefresh) onRefresh();
   };
 
-  const filteredMaterials = (list: StudyMaterial[]) => list.filter(m => {
-    const s = search.toLowerCase();
-    const matchesSearch = m.title.toLowerCase().includes(s) || m.school.toLowerCase().includes(s);
-    const matchesType = filterType === 'all' || m.type === filterType;
-    return matchesSearch && matchesType;
-  });
+  const filteredMaterials = (list: StudyMaterial[]) => {
+    let filtered = list.filter(m => {
+      const s = search.toLowerCase();
+      const matchesSearch = m.title.toLowerCase().includes(s) || m.school.toLowerCase().includes(s) || m.description.toLowerCase().includes(s);
+      const matchesType = filterType === 'all' || m.type === filterType;
+      const matchesSchool = filterSchool === 'all' || m.school === filterSchool;
+      const matchesYear = filterYear === 'all' || m.year === filterYear;
+      return matchesSearch && matchesType && matchesSchool && matchesYear;
+    });
+
+    // Sort
+    filtered.sort((a, b) => {
+      switch (sortBy) {
+        case 'newest':
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        case 'oldest':
+          return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+        case 'title':
+          return a.title.localeCompare(b.title);
+        case 'school':
+          return a.school.localeCompare(b.school);
+        default:
+          return 0;
+      }
+    });
+
+    return filtered;
+  };
 
   return (
     <div className="flex flex-col h-screen bg-slate-50 overflow-hidden">
@@ -147,14 +185,33 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, onR
               {activeTab === 'hub' && (
                 <div className="max-w-6xl mx-auto">
                   <div className="mb-8"><h2 className="text-2xl font-black text-slate-800 mb-5">University Library</h2>
-                    <div className="flex flex-col sm:flex-row gap-4"><div className="relative flex-1"><Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 w-5 h-5" /><input type="text" placeholder="Search..." className="input pl-12" value={search} onChange={e => setSearch(e.target.value)} /></div>
-                    <div className="flex gap-2"><FilterButton active={filterType === 'all'} onClick={() => setFilterType('all')} label="All" /><FilterButton active={filterType === 'note'} onClick={() => setFilterType('note')} label="Notes" icon={<BookOpen size={14} />} /><FilterButton active={filterType === 'past-paper'} onClick={() => setFilterType('past-paper')} label="Papers" icon={<FileText size={14} />} /></div></div>
+                    <div className="space-y-4">
+                      <div className="flex flex-col sm:flex-row gap-4"><div className="relative flex-1"><Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 w-5 h-5" /><input type="text" placeholder="Search materials..." className="input pl-12" value={search} onChange={e => setSearch(e.target.value)} /></div></div>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        <select className="input text-sm" value={filterSchool} onChange={e => setFilterSchool(e.target.value)}>
+                          <option value="all">All Schools</option>
+                          {universities.map(u => <option key={u.id} value={u.name}>{u.name}</option>)}
+                        </select>
+                        <select className="input text-sm" value={filterYear} onChange={e => setFilterYear(e.target.value)}>
+                          <option value="all">All Years</option>
+                          <option>First Year</option><option>Second Year</option><option>Third Year</option><option>Fourth Year</option>
+                        </select>
+                        <select className="input text-sm" value={sortBy} onChange={e => setSortBy(e.target.value as any)}>
+                          <option value="newest">Newest</option><option value="oldest">Oldest</option><option value="title">Title A-Z</option><option value="school">School</option>
+                        </select>
+                        <div className="flex gap-2">
+                          <FilterButton active={filterType === 'all'} onClick={() => setFilterType('all')} label="All" />
+                          <FilterButton active={filterType === 'note'} onClick={() => setFilterType('note')} label="Notes" icon={<BookOpen size={14} />} />
+                          <FilterButton active={filterType === 'past-paper'} onClick={() => setFilterType('past-paper')} label="Papers" icon={<FileText size={14} />} />
+                        </div>
+                      </div>
+                    </div>
                   </div>
                   <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-3 gap-6">
                     {filteredMaterials(materials).map(m => (
                       <MaterialCard key={m.id} material={m} isSubscribed={isSubscribed} onOpen={() => setViewingMaterial(m)} onSave={() => { api.saveOffline(user.id, m); refreshData(); }} onUpgrade={() => setShowPayment(true)} />
                     ))}
-                    {filteredMaterials(materials).length === 0 && <div className="col-span-full py-20 text-center"><FileSearch size={48} className="mx-auto text-slate-200 mb-4" /><p className="font-bold text-slate-400">Empty Library</p></div>}
+                    {filteredMaterials(materials).length === 0 && <div className="col-span-full py-20 text-center"><FileSearch size={48} className="mx-auto text-slate-200 mb-4" /><p className="font-bold text-slate-400">No materials match your filters</p></div>}
                   </div>
                 </div>
               )}
@@ -177,15 +234,26 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, onR
                     <button onClick={() => setShowTaskModal(true)} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl font-black text-sm"><PlusCircle size={18} /> New Task</button>
                   </div>
                   <div className="space-y-4">
-                    {tasks.length > 0 ? tasks.map(task => (
-                      <div key={task.id} className="bg-white rounded-2xl p-6 border flex items-start justify-between hover:shadow-lg transition-all">
-                        <div className="flex-1">
-                          <h4 className="font-black text-slate-800 text-lg">{task.title}</h4>
-                          <p className="text-slate-400 text-sm mt-2 line-clamp-3">{task.content}</p>
+                    {tasks.length > 0 ? tasks.sort((a, b) => {
+                      const priorityOrder = { high: 0, medium: 1, low: 2 };
+                      return (priorityOrder[a.priority as any] || 2) - (priorityOrder[b.priority as any] || 2);
+                    }).map(task => {
+                      const priorityColor = task.priority === 'high' ? 'bg-red-50 border-red-200' : task.priority === 'medium' ? 'bg-yellow-50 border-yellow-200' : 'bg-green-50 border-green-200';
+                      const priorityBadge = task.priority === 'high' ? 'bg-red-100 text-red-700' : task.priority === 'medium' ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700';
+                      return (
+                        <div key={task.id} className={`rounded-2xl p-6 border flex items-start justify-between hover:shadow-lg transition-all ${priorityColor}`}>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-3 mb-2">
+                              <h4 className="font-black text-slate-800 text-lg">{task.title}</h4>
+                              <span className={`text-[10px] font-black px-3 py-1 rounded-full ${priorityBadge}`}>{(task.priority || 'medium').toUpperCase()}</span>
+                            </div>
+                            <p className="text-slate-400 text-sm mt-2 line-clamp-3">{task.content}</p>
+                            {task.dueDate && <p className="text-[10px] text-slate-400 mt-3">Due: {new Date(task.dueDate).toLocaleDateString()}</p>}
+                          </div>
+                          <button onClick={() => api.deleteTask(task.id).then(() => refreshData())} className="p-3 text-red-500 hover:bg-red-100 rounded-xl"><Trash2 size={18} /></button>
                         </div>
-                        <button onClick={() => api.deleteTask(task.id).then(() => refreshData())} className="p-3 text-red-500 hover:bg-red-50 rounded-xl"><Trash2 size={18} /></button>
-                      </div>
-                    )) : <div className="py-20 text-center"><Calendar size={48} className="mx-auto text-slate-200 mb-4" /><p className="font-bold text-slate-400">No tasks yet</p></div>}
+                      );
+                    }) : <div className="py-20 text-center"><Calendar size={48} className="mx-auto text-slate-200 mb-4" /><p className="font-bold text-slate-400">No tasks yet. Create one to get started!</p></div>}
                   </div>
                 </div>
               )}
@@ -248,6 +316,12 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, onR
           <form onSubmit={(e) => { e.preventDefault(); handleSaveTask(); }} className="space-y-4">
             <input required type="text" placeholder="Task title" className="input" value={taskTitle} onChange={e => setTaskTitle(e.target.value)} />
             <textarea required placeholder="Task details" className="input h-24" value={taskContent} onChange={e => setTaskContent(e.target.value)} />
+            <select className="input" value={taskPriority} onChange={e => setTaskPriority(e.target.value as any)}>
+              <option value="low">Low Priority</option>
+              <option value="medium">Medium Priority</option>
+              <option value="high">High Priority</option>
+            </select>
+            <input type="date" className="input" value={taskDueDate} onChange={e => setTaskDueDate(e.target.value)} placeholder="Due date (optional)" />
             <button type="submit" className="btn-submit">Save Task</button>
           </form>
         </Modal>
