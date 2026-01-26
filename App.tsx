@@ -25,9 +25,20 @@ const App: React.FC = () => {
     // Handle install prompt
     const handleBeforeInstallPrompt = (e: Event) => {
       console.log('beforeinstallprompt event fired');
-      e.preventDefault();
+      // Store the event but DON'T prevent it - let browser show native install UI
       setDeferredPrompt(e);
-      setShowInstallPrompt(true);
+      
+      // Only show our custom prompt if browser doesn't support native one
+      const hasNativeUI = 'prompt' in e;
+      console.log('Browser has native install UI:', hasNativeUI);
+      
+      if (hasNativeUI) {
+        // Let the browser handle it natively - don't show our custom prompt
+        console.log('Allowing browser native install UI');
+      } else {
+        // Show our custom prompt for browsers without native UI
+        setShowInstallPrompt(true);
+      }
     };
 
     const handleAppInstalled = () => {

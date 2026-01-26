@@ -8,6 +8,9 @@ export default defineConfig(({ mode }) => {
       server: {
         port: 3000,
         host: '0.0.0.0',
+        headers: {
+          'Service-Worker-Allowed': '/',
+        },
       },
       plugins: [react()],
       define: {
