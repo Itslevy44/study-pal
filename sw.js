@@ -1,61 +1,26 @@
-
 const CACHE_NAME = 'studypal-v1';
 const RUNTIME_CACHE = 'studypal-runtime';
-const ASSETS = [
-  '/',
-  '/index.html',
-  '/manifest.json'
-];
 
+// 1. Skip pre-caching assets on install
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS).catch((error) => {
-        console.warn('Cache addAll failed:', error);
-      });
-    })
-  );
-  self.skipWaiting();
+  self.skipWaiting(); 
 });
 
+// 2. Clear out all old caches when this new service worker activates
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
-        cacheNames
-          .filter((cacheName) => cacheName !== CACHE_NAME && cacheName !== RUNTIME_CACHE)
-          .map((cacheName) => caches.delete(cacheName))
+        cacheNames.map((cacheName) => caches.delete(cacheName))
       );
     })
   );
   self.clients.claim();
 });
 
+// 3. Network-only fetch strategy
 self.addEventListener('fetch', (event) => {
-  const { request } = event;
-  const url = new URL(request.url);
-
-  if (request.method !== 'GET') {
-    return;
-  }
-
-  event.respondWith(
-    caches.match(request).then((response) => {
-      if (response) {
-        return response;
-      }
-      return fetch(request).then((response) => {
-        if (!response || response.status !== 200 || response.type === 'error') {
-          return response;
-        }
-        const responseToCache = response.clone();
-        caches.open(RUNTIME_CACHE).then((cache) => {
-          cache.put(request, responseToCache);
-        });
-        return response;
-      }).catch(() => {
-        return caches.match('/index.html');
-      });
-    })
-  );
+  // If you want to bypass the service worker entirely for certain requests, 
+  // you can just return and let the browser handle it normally.
+  event.respondWith(fetch(event.request));
 });
