@@ -1,15 +1,16 @@
-/* sw.js - Service Worker Self-Destruct */
+/* sw.js - Service Worker Self-Destruct Script */
 
 self.addEventListener('install', (event) => {
-  // Immediately take over and skip the waiting phase
+  // Force the new "kill" worker to take over immediately
   self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
-  // Unregister the service worker
+  // Unregister this service worker from the browser
   self.registration.unregister()
     .then(() => self.clients.matchAll())
     .then((clients) => {
+      // Force all open tabs to reload so they are no longer controlled
       clients.forEach((client) => {
         if (client.url && 'navigate' in client) {
           client.navigate(client.url);
@@ -17,7 +18,7 @@ self.addEventListener('activate', (event) => {
       });
     });
 
-  // Delete all caches associated with this domain
+  // Delete every single cache storage folder (Purge everything)
   event.waitUntil(
     caches.keys().then((names) => {
       return Promise.all(names.map((name) => caches.delete(name)));
@@ -25,7 +26,7 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Immediately pass all requests through to the network without looking at cache
+// Immediately pass all fetches to the live network
 self.addEventListener('fetch', (event) => {
   return; 
 });
